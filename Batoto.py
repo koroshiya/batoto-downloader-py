@@ -2,9 +2,16 @@
 
 import sys
 if sys.version_info < (2, 7):
-    raise "must use python 2.7 or greater"
+    print "Must use python 2.7 or greater\n"
+    sys.exit()
 
-import wx
+try:
+	import wx
+except ImportError:
+	print "You do not appear to have wxpython installed.\n"
+	print "Without wxpython, this program cannot run.\n"
+	print "You can download wxpython at: http://www.wxpython.org/download.php#stable \n"
+	sys.exit()
 import BatotoFrame
 
 batoto = wx.App(False)
