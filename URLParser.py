@@ -1,11 +1,14 @@
 #!/usr/bin/python2.7 -tt
 
+import sys
+if sys.version_info < (2, 7):
+    raise "must use python 2.7 or greater"
+
 import urllib
 import urllib2
 import re
 import wx
 import os
-import sys
 import traceback
 from StringIO import StringIO
 import gzip

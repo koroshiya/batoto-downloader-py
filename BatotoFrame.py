@@ -1,5 +1,9 @@
 #!/usr/bin/python2.7 -tt
 
+import sys
+if sys.version_info < (2, 7):
+    raise "must use python 2.7 or greater"
+
 import wx
 from URLParser import URLParser
 from os.path import expanduser
@@ -21,6 +25,11 @@ FILE_CLEAR_ALL = 670
 HOME_DIR = expanduser("~")
 SAVE_FILE = HOME_DIR + "/batotolist.txt"
 
+WIDTH_MIN = 500
+WIDTH_INITIAL = 500
+HEIGHT_MIN = 400
+HEIGHT_INITIAL = 400
+
 class BatotoFrame(wx.Frame):
 
 	def __init__(self, *args, **kwargs):
@@ -28,6 +37,8 @@ class BatotoFrame(wx.Frame):
 
 		self.SetTitle("Batoto Downloader")
 		self.SetIcon(wx.Icon('jr.png', wx.BITMAP_TYPE_PNG))
+		self.SetSize((WIDTH_INITIAL,HEIGHT_INITIAL));
+		self.SetMinSize((WIDTH_MIN,HEIGHT_MIN))
 		self.InitUI()
 
 	def InitUI(self):
