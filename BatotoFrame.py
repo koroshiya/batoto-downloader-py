@@ -43,6 +43,7 @@ class BatotoFrame(wx.Frame):
 	def __init__(self, *args, **kwargs):
 		super(BatotoFrame, self).__init__(*args, **kwargs)
 
+		self.Bind(wx.EVT_CLOSE, self.Exit)
 		self.SetTitle("Batoto Downloader")
 		self.SetIcon(wx.Icon('jr.png', wx.BITMAP_TYPE_PNG))
 		self.SetSize((WIDTH_INITIAL,HEIGHT_INITIAL));
@@ -172,7 +173,7 @@ class BatotoFrame(wx.Frame):
 		self.URLList.SaveFile(SAVE_FILE)
 
 	def Exit(self, e):
-		self.Close();
+		wx.Exit()
 
 	def AddURL(self, e):
 		line = self.inputText.GetLineText(0);
