@@ -26,7 +26,6 @@ class URLParser:
 	FAILSAFE = True;
 
 	def downloadFromURL(self, oldPath, home, statusbar):
-		print oldPath[:7]
 		if (not oldPath[-1] == "/" and not oldPath[-1] == "/1"): oldPath += "/1"
 		if (not(oldPath[:7] == "http://" or oldPath[:8] == "https://")): return False
 		
@@ -34,7 +33,6 @@ class URLParser:
 		newDir = "";
 		try:
 			newDir = home + "/" + URLParser.LastFolderInPath(self, url)
-			print newDir
 		except Exception, e:
 			print repr(e)
 			return False
@@ -43,8 +41,6 @@ class URLParser:
 		if not os.path.isdir(newDir):
 			os.makedirs(newDir)
 		workDir = newDir
-		print workDir
-		
 		
 		regex = ""
 		boolContinue = True
@@ -56,8 +52,9 @@ class URLParser:
 					regex = URLParser.findFormat(self, arg, False);
 					URLParser.Download(self, regex, workDir, statusbar);
 				except Exception, e:
-					print "Regex FAILSAFE " + repr(e)
-					traceback.print_exc(file=sys.stdout)
+					#print "Regex FAILSAFE " + repr(e)
+					#traceback.print_exc(file=sys.stdout)
+					#Commented out because this exception is usually hit at end of chapter regardless
 					boolContinue = False
 				i+=1
 			statusbar.SetStatusText('')

@@ -15,6 +15,7 @@ except ImportError:
 from URLParser import URLParser
 from os.path import expanduser
 from os.path import isfile
+from threading import Thread
 
 FILE_IMPORT = 650
 FILE_EXPORT = 651
@@ -188,8 +189,11 @@ class BatotoFrame(wx.Frame):
 	def ParseFirst(self, e):
 		line = self.URLList.GetLineText(0);
 		if (len(line) > 0):
-			self.ParseLine(line);
-			self.ClearFirst(e);
+			Thread(target = self.ParseFirstThread(line, e)).start();
+
+	def ParseFirstThread(self, line, e):
+		self.ParseLine(line)
+		self.ClearFirst(e);
 
 	def ParseLast(self, e):
 		totalLines = self.URLList.GetNumberOfLines()
@@ -197,8 +201,11 @@ class BatotoFrame(wx.Frame):
 			self.ParseFirst(e);
 		else:
 			line = self.URLList.GetLineText(totalLines - 1);
-			self.ParseLine(line);
-			self.URLList.ClearLast();
+			Thread(target = self.ParseLastThread(line, e)).start();
+
+	def ParseLastThread(self, line, e):
+		self.ParseLine(line);
+		self.URLList.ClearLast(e);
 
 	def ParseAll(self, e):
 		totalLines = self.URLList.GetNumberOfLines()
@@ -208,9 +215,11 @@ class BatotoFrame(wx.Frame):
 			count += 1
 
 	def ParseLine(self, line):
+		self.SetLocked(True)
 		parser = URLParser();
 		if parser.testURL(line):
 			parser.downloadFromURL(line, HOME_DIR, self.statusbar)
+		self.SetLocked(False)
 
 	def ClearFirst(self, e):
 		end = self.URLList.GetLineLength(0) + 1;
@@ -235,3 +244,9 @@ class BatotoFrame(wx.Frame):
 	def LoadListFromFile(self):
 		if isfile(SAVE_FILE):
 			self.URLList.LoadFile(SAVE_FILE)
+
+	def SetLocked(self, lock):
+		if lock:
+			self.Disable()
+		else:
+			self.Enable()
