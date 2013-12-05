@@ -1,5 +1,6 @@
 #!/usr/bin/python2.7 -tt
 
+from __future__ import unicode_literals
 import sys
 if sys.version_info < (2, 7):
     print "Must use python 2.7 or greater\n"
