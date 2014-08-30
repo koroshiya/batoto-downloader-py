@@ -25,10 +25,47 @@ import gzip
 class URLParser:
 	BUFFER = 4096;
 	FAILSAFE = True;
+	
+	def arbitraryDownload(self, oldPath, home, statusbar):
+		if (not(oldPath[:7] == "http://" or oldPath[:8] == "https://")): return False
+		try:
+			newDir = home + "/" + URLParser.LastFolderInPath(self, oldPath)
+		except Exception, e:
+			print repr(e)
+			return False
+		if not os.path.isdir(newDir):
+			os.makedirs(newDir)
+		i = 1
+		boolContinue = True
+		while boolContinue:
+			boolContinue = False
+			if i < 10:
+				padding = "00" + str(i)
+			elif i < 100:
+				padding = "0" + str(i)
+			elif i < 1000:
+				padding = str(i)
+			else:
+				return
+			try:
+				for ext in [".jpg", ".png"]:
+					nUrl = oldPath + str(i) + ext
+					print "Testing URL:", nUrl
+					if URLParser.testUrl(nUrl):
+						print 'Downloading: ' + padding + ext
+						statusbar.SetStatusText('Downloading: ' + padding + ext)
+						urllib.urlretrieve(nUrl, newDir + "/" + padding + ext)
+						boolContinue = True
+						break
+			except Exception, e:
+				pass
+			i += 1
 
 	def downloadFromURL(self, oldPath, home, statusbar):
+		if (not(oldPath[:13] == "http://batoto" or oldPath[:14] == "https://batoto" or oldPath[:17] == "http://www.batoto" or oldPath[:18] == "https://www.batoto" or oldPath[:14] == "http://bato.to" or oldPath[:15] == "https://bato.to" or oldPath[:18] == "http://www.bato.to" or oldPath[:19] == "https://www.bato.to")):
+			URLParser.arbitraryDownload(self, oldPath, home, statusbar)
+			return False
 		if (not oldPath[-1] == "/" and not oldPath[-1] == "/1"): oldPath += "/1"
-		if (not(oldPath[:7] == "http://" or oldPath[:8] == "https://")): return False
 		
 		url = oldPath;
 		newDir = "";
@@ -121,12 +158,12 @@ class URLParser:
 		else:
 			web_pg = aResp.read()
 		
-		pattern = ["http://img.batoto.net/comics/2\S*\"", "http://eu.batoto.net/comics/2\S*\"", "http://arc.batoto.net/comics/2\S*\""]
+		pattern = ["http://img.bato.to/comics/2\S*\"", "http://eu.bato.to/comics/2\S*\"", "http://arc.bato.to/comics/2\S*\""]
 		for p in pattern:
 			m = re.search(p, web_pg)
 			if m:
 				inputLine = m.group(0)[:-1]
-				arc = re.search("http://arc.batoto.net/comics/2\S*\"", inputLine)
+				arc = re.search("http://arc.bato.to/comics/2\S*\"", inputLine)
 				inp = "img"
 				if arc:
 					inp = ""
