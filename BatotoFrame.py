@@ -207,7 +207,7 @@ class BatotoFrame(wx.Frame):
 
 	def ParseLastThread(self, line, e):
 		self.ParseLine(line);
-		self.URLList.ClearLast(e);
+		self.ClearLast(e);
 
 	def ParseAll(self, e):
 		totalLines = self.URLList.GetNumberOfLines()

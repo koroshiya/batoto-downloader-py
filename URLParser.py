@@ -100,11 +100,12 @@ class URLParser:
 		chapters = []
 		lang = None
 		for line in web_pg:
-			m = re.search(pattern, line)
-			if m and lang == "English":
-				inputLine = m.group(0)[:-1]
-				if not "/" in inputLine[-4]:
-					chapters.append(inputLine)
+			if lang == "English":
+				m = re.search(pattern, line)
+				if m:
+					inputLine = m.group(0)[:-1]
+					if not "/" in inputLine[-4]:
+						chapters.append(inputLine)
 			else:
 				if "lang_English" in line:
 					lang = "English"
