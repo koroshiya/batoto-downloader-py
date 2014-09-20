@@ -60,12 +60,59 @@ class URLParser:
 			except Exception, e:
 				pass
 			i += 1
+	
+	def downloadFullSeries(self, url, home, statusbar):
+		newDir = "";
+		if url[-1] != "/":
+			url += "/"
+		try:
+			newDir = home + "/" + URLParser.LastFolderInPath(self, url)
+		except Exception, e:
+			print repr(e)
+			return False
+		
+		workDir = home;
+		if not os.path.isdir(newDir):
+			os.makedirs(newDir)
+		workDir = newDir
+		
+		chapters = self.findChapters(url)
+		
+		for chapter in chapters:
+			self.downloadFromURL(chapter, newDir, statusbar)
+	
+	def findChapters(self, url):
+		
+		request = urllib2.Request(url)
+		request.add_header('Accept-encoding', 'gzip')
+		aResp = urllib2.urlopen(request);
+		if aResp.info().get('Content-Encoding') == 'gzip':
+		    buf = StringIO( aResp.read())
+		    f = gzip.GzipFile(fileobj=buf)
+		    web_pg = f.readlines()
+		else:
+			web_pg = aResp.readlines()
+		
+		pattern = "http://bato.to/read/\S*\""
+		chapters = []
+		for line in web_pg:
+			m = re.search(pattern, line)
+			if m:
+				inputLine = m.group(0)[:-1]
+				if not "/" in inputLine[-4]:
+					chapters.append(inputLine)
+		
+		return chapters
 
 	def downloadFromURL(self, oldPath, home, statusbar):
-		if (not(oldPath[:13] == "http://batoto" or oldPath[:14] == "https://batoto" or oldPath[:17] == "http://www.batoto" or oldPath[:18] == "https://www.batoto" or oldPath[:14] == "http://bato.to" or oldPath[:15] == "https://bato.to" or oldPath[:18] == "http://www.bato.to" or oldPath[:19] == "https://www.bato.to")):
+		if (not(oldPath[:14] == "http://bato.to" or oldPath[:15] == "https://bato.to" or oldPath[:18] == "http://www.bato.to" or oldPath[:19] == "https://www.bato.to")):
 			URLParser.arbitraryDownload(self, oldPath, home, statusbar)
 			return False
-		if (not oldPath[-1] == "/" and not oldPath[-1] == "/1"): oldPath += "/1"
+		if "bato.to/comic/" in oldPath:
+			URLParser.downloadFullSeries(self, oldPath, home, statusbar)
+			return True
+		else:
+			if (not oldPath[-1] == "/" and not oldPath[-1] == "/1"): oldPath += "/1"
 		
 		url = oldPath;
 		newDir = "";
