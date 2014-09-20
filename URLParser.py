@@ -22,6 +22,9 @@ import traceback
 from StringIO import StringIO
 import gzip
 
+reload(sys)
+sys.setdefaultencoding("utf-8")
+
 class URLParser:
 	BUFFER = 4096;
 	FAILSAFE = True;
@@ -95,12 +98,18 @@ class URLParser:
 		
 		pattern = "http://bato.to/read/\S*\""
 		chapters = []
+		lang = None
 		for line in web_pg:
 			m = re.search(pattern, line)
-			if m:
+			if m and lang == "English":
 				inputLine = m.group(0)[:-1]
 				if not "/" in inputLine[-4]:
 					chapters.append(inputLine)
+			else:
+				if "lang_English" in line:
+					lang = "English"
+				else:
+					lang = None
 		
 		return chapters
 
