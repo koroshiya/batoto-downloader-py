@@ -220,8 +220,12 @@ class URLParser:
 	
 	def Download(self, url, workDir, statusbar):
 		filep = URLParser.LastFileInPath(self, url);
-		statusbar.SetStatusText('Downloading: ' + filep)
-		urllib.urlretrieve(url, workDir + "/" + filep)
+		lFile = workDir + "/" + filep
+		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(urllib2.urlopen(url).headers["Content-Length"]):
+			statusbar.SetStatusText(filep + ' already exists')
+		else:
+			statusbar.SetStatusText('Downloading: ' + filep)
+			urllib.urlretrieve(url, workDir + "/" + filep)
 	
 	def LastFileInPath(self, path):
 		start = path.rindex('/')
