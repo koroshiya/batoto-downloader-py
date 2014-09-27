@@ -21,13 +21,32 @@ import os
 import traceback
 from StringIO import StringIO
 import gzip
+import multiprocessing
+from multiprocessing import Queue, Process, current_process
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
 class URLParser:
 	BUFFER = 4096;
-	FAILSAFE = True;
+	
+	work_queue = Queue()
+	done_queue = Queue()
+	processes = []
+	workers = 4
+	
+	def ContinueDownload(self, url, workdir, statusbar):
+		filep = URLParser.LastFileInPath(self, url)
+		#statusbar.SetStatusText('Downloading: ' + filep)
+		print 'Downloading: ' + filep
+		urllib.urlretrieve(url, workdir + "/" + filep)
+		return "Page downloaded"
+	
+	def worker(self, work_queue, done_queue, workdir, statusbar):
+		for url in iter(work_queue.get, 'STOP'):
+			status_code = URLParser.ContinueDownload(self, url, workdir, statusbar)
+			done_queue.put("%s - %s got %s." % (current_process().name, url, status_code))
+		return True
 	
 	def arbitraryDownload(self, oldPath, home, statusbar):
 		if (not(oldPath[:7] == "http://" or oldPath[:8] == "https://")): return False
@@ -140,40 +159,43 @@ class URLParser:
 		regex = ""
 		boolContinue = True
 		i = 1
-		if (URLParser.FAILSAFE):
-			while boolContinue:
-				try:
-					arg = URLParser.AbsoluteFolder(self, url) + str(i);
-					regex = URLParser.findFormat(self, arg, False);
-					URLParser.Download(self, regex, workDir, statusbar);
-				except Exception, e:
-					#print "Regex FAILSAFE " + repr(e)
-					#traceback.print_exc(file=sys.stdout)
-					#Commented out because this exception is usually hit at end of chapter regardless
-					boolContinue = False
-				i+=1
-			statusbar.SetStatusText('')
-		else:
+		urls = []
+		statusbar.SetStatusText('Indexing...')
+		
+		while boolContinue:
 			try:
-				regex = URLParser.findFormat(self, url, True)
-			except Exception, ex:
-				print "regex" + repr(ex)
-				return False
-			
-			while boolContinue:
-				try:
-					siz = 6 if (regex[:10] == "http://img" or regex[:9] == "http://eu") else 2
-					form = URLParser.FormatNumber(i, siz)
-					
-					fmtImg = (regex + form)
-					filePath = URLParser.findExtension(fmtImg, i)
-					URLParser.Download(filePath, workDir, statusbar)
-				except Exception, ex:
-					print repr(ex)
+				arg = URLParser.AbsoluteFolder(self, url) + str(i);
+				statusbar.SetStatusText('Indexing page ' + str(i))
+				regex = URLParser.findFormat(self, arg, False);
+				if regex and regex[-4:] in [".jpg", ".png"]:
+					print regex
+					if URLParser.Download(self, regex, workDir, statusbar):
+						urls.append(regex)
+				else:
 					boolContinue = False
+			except Exception, e:
+				boolContinue = False
+			i+=1
 				
-				i+=1
-			statusbar.SetStatusText('')
+		statusbar.SetStatusText('Beginning asynchronous downloads')
+		if len(urls) > 0:
+			for url in urls:
+				self.work_queue.put(url)
+				
+			for w in xrange(self.workers):
+				p = Process(target=self.worker, args=(self.work_queue, self.done_queue, workDir, statusbar))
+				p.start()
+				self.processes.append(p)
+				self.work_queue.put('STOP')
+
+			for p in self.processes:
+				p.join()
+
+			self.done_queue.put('STOP')
+
+			for status in iter(self.done_queue.get, 'STOP'):
+				print status
+		statusbar.SetStatusText('Finished')
 		
 		return i != 1;
 	
@@ -226,16 +248,16 @@ class URLParser:
 					inp = ""
 				return URLParser.AbsoluteFolder(inputLine) + inp if dire else inputLine
 		
-		raise Exception("");
+		return False
 	
 	def Download(self, url, workDir, statusbar):
 		filep = URLParser.LastFileInPath(self, url);
 		lFile = workDir + "/" + filep
 		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(urllib2.urlopen(url).headers["Content-Length"]):
 			statusbar.SetStatusText(filep + ' already exists')
+			return False
 		else:
-			statusbar.SetStatusText('Downloading: ' + filep)
-			urllib.urlretrieve(url, workDir + "/" + filep)
+			return True
 	
 	def LastFileInPath(self, path):
 		start = path.rindex('/')
