@@ -13,7 +13,10 @@ except ImportError:
 	print "Without wxpython, this program cannot run.\n"
 	print "You can download wxpython at: http://www.wxpython.org/download.php#stable \n"
 	sys.exit()
+import os
 import BatotoFrame
+
+os.chdir(os.path.dirname(sys.argv[0]))
 
 batoto = wx.App(False)
 
