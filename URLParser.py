@@ -233,20 +233,18 @@ class URLParser:
 		if aResp.info().get('Content-Encoding') == 'gzip':
 		    buf = StringIO( aResp.read())
 		    f = gzip.GzipFile(fileobj=buf)
-		    web_pg = f.read()
+		    web_pg = f.readlines()
 		else:
-			web_pg = aResp.read()
+			web_pg = aResp.readlines()
+		#print web_pg
 		
-		pattern = ["http://img.bato.to/comics/2\S*\"", "http://eu.bato.to/comics/2\S*\"", "http://arc.bato.to/comics/2\S*\""]
-		for p in pattern:
-			m = re.search(p, web_pg)
-			if m:
-				inputLine = m.group(0)[:-1]
-				arc = re.search("http://arc.bato.to/comics/2\S*\"", inputLine)
-				inp = "img"
-				if arc:
-					inp = ""
-				return URLParser.AbsoluteFolder(inputLine) + inp if dire else inputLine
+		for line in web_pg:
+			if "id=\"comic_page\"" in line:
+				mn = re.search('src=\S*\"', line)
+				if mn:
+					inputLine = mn.group(0)[5:-1]
+					inp = "" if inputLine[0:10] == "http://arc" else "img"
+					return URLParser.AbsoluteFolder(inputLine) + inp if dire else inputLine
 		
 		return False
 	
