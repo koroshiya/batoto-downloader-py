@@ -125,6 +125,7 @@ class URLParser:
 					inputLine = m.group(0)[:-1]
 					if not "/" in inputLine[-4]:
 						chapters.append(inputLine)
+				lang = None
 			else:
 				if "lang_English" in line:
 					lang = "English"
