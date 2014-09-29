@@ -146,8 +146,9 @@ class URLParser:
 		
 		url = oldPath;
 		newDir = "";
+		lastPath = URLParser.LastFolderInPath(self, url)
 		try:
-			newDir = home + "/" + URLParser.LastFolderInPath(self, url)
+			newDir = home + "/" + lastPath
 		except Exception, e:
 			print repr(e)
 			return False
@@ -178,7 +179,7 @@ class URLParser:
 				boolContinue = False
 			i+=1
 				
-		statusbar.SetStatusText('Beginning asynchronous downloads')
+		statusbar.SetStatusText('Downloading '+lastPath)
 		if len(urls) > 0:
 			for url in urls:
 				self.work_queue.put(url)
