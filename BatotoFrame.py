@@ -31,6 +31,9 @@ FILE_CLEAR_FIRST = 668
 FILE_CLEAR_LAST = 669
 FILE_CLEAR_ALL = 670
 
+SETTING_ORDER = 680
+SETTING_ORDER_MENU = 681
+
 HOME_DIR = expanduser("~")
 SAVE_FILE = HOME_DIR + "/batotolist.txt"
 
@@ -83,6 +86,7 @@ class BatotoFrame(wx.Frame):
 		menuFile = wx.Menu()
 		menuParse = wx.Menu()
 		menuClear = wx.Menu()
+		menuSettings = wx.Menu()
 
 		menuItemImport = wx.MenuItem(menuFile, FILE_IMPORT, '&Import\tCtrl+I')
 		menuItemExport = wx.MenuItem(menuFile, FILE_EXPORT, '&Export\tCtrl+E')
@@ -96,6 +100,12 @@ class BatotoFrame(wx.Frame):
 		menuItemClearFirst = wx.MenuItem(menuClear, FILE_CLEAR_FIRST, 'Clear &First')
 		menuItemClearLast = wx.MenuItem(menuClear, FILE_CLEAR_LAST, 'Clear &Last')
 		menuItemClearAll = wx.MenuItem(menuClear, FILE_CLEAR_ALL, 'Clear &All')
+		
+		menuSettingsOrder = wx.Menu()
+		self.menuItemSettingsOrderNew = menuSettingsOrder.AppendRadioItem(SETTING_ORDER, 'Newest First')
+		self.menuItemSettingsOrderOld = menuSettingsOrder.AppendRadioItem(SETTING_ORDER, 'Oldest First')
+		
+		menuSettingsOrder.Check(self.menuItemSettingsOrderNew.GetId(), True)
 
 		#menuItemOpen.SetBitmap(wx.Bitmap('file.png'))
 
@@ -113,10 +123,13 @@ class BatotoFrame(wx.Frame):
 		menuClear.AppendItem(menuItemClearFirst)
 		menuClear.AppendItem(menuItemClearLast)
 		menuClear.AppendItem(menuItemClearAll)
+		
+		menuSettings.AppendMenu(SETTING_ORDER_MENU, '&Parse All Order', menuSettingsOrder)
 
 		menubar.Append(menuFile, '&File')
 		menubar.Append(menuParse, '&Parse')
 		menubar.Append(menuClear, '&Clear')
+		menubar.Append(menuSettings, '&Settings')
 
 		self.Bind(wx.EVT_MENU, self.Import, id=FILE_IMPORT)
 		self.Bind(wx.EVT_MENU, self.Export, id=FILE_EXPORT)
@@ -213,7 +226,10 @@ class BatotoFrame(wx.Frame):
 		totalLines = self.URLList.GetNumberOfLines()
 		count = 0
 		while (count < totalLines):
-			self.ParseFirst(e)
+			if self.menuItemSettingsOrderOld.IsChecked():
+				self.ParseFirst(e)
+			else:
+				self.ParseLast(e)
 			count += 1
 
 	def ParseLine(self, line):
