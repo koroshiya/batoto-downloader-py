@@ -3,8 +3,8 @@
 from __future__ import unicode_literals
 import sys
 if sys.version_info < (2, 7):
-    print "Must use python 2.7 or greater\n"
-    sys.exit()
+	print "Must use python 2.7 or greater\n"
+	sys.exit()
 
 try:
 	import wx

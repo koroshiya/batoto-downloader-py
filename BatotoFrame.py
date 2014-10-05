@@ -3,8 +3,8 @@
 from __future__ import unicode_literals
 import sys
 if sys.version_info < (2, 7):
-    print "Must use python 2.7 or greater\n"
-    sys.exit()
+	print "Must use python 2.7 or greater\n"
+	sys.exit()
 
 try:
 	import wx
@@ -240,22 +240,19 @@ class BatotoFrame(wx.Frame):
 		self.URLList.AppendText(line);
 	
 	def ParseFirst(self, e):
-		totalLines = self.URLList.GetNumberOfLines()
+		totalLines = self.UiGetNumberOfLines()
 		if (totalLines > 0):
 			line = self.URLList.GetLineText(0)
 			thread = BatotoThread(2, line, self)
 
 	def ParseLast(self, e):
-		totalLines = self.URLList.GetNumberOfLines()
-		if totalLines < 2:
-			line = self.URLList.GetLineText(0)
-			thread = BatotoThread(2, line, self)
-		else:
+		totalLines = self.UiGetNumberOfLines()
+		if totalLines > 0:
 			line = self.URLList.GetLineText(totalLines - 1)
 			thread = BatotoThread(1, line, self)
 
-	def ParseAll(self):
-		totalLines = self.URLList.GetNumberOfLines()
+	def ParseAll(self, e):
+		totalLines = self.UiGetNumberOfLines()
 		if (totalLines > 0):
 			count = 0
 			lines = []
@@ -270,7 +267,7 @@ class BatotoFrame(wx.Frame):
 		self.Save(e);
 
 	def ClearLast(self, e):
-		totalLines = self.URLList.GetNumberOfLines()
+		totalLines = self.UiGetNumberOfLines()
 		if totalLines < 2:
 			self.ClearAll(e);
 		else:
@@ -317,3 +314,9 @@ class BatotoFrame(wx.Frame):
 	
 	def UiGetLine(lineNum):
 		return self.URLList.GetLineText(lineNum)
+
+	def UiGetNumberOfLines(self):
+		if self.URLList.GetValue() == '':
+			return 0
+		else:
+			return self.URLList.GetNumberOfLines()

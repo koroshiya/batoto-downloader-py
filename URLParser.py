@@ -3,8 +3,8 @@
 from __future__ import unicode_literals
 import sys
 if sys.version_info < (2, 7):
-    print "Must use python 2.7 or greater\n"
-    sys.exit()
+	print "Must use python 2.7 or greater\n"
+	sys.exit()
 
 try:
 	import wx
@@ -111,9 +111,9 @@ class URLParser:
 		request.add_header('Accept-encoding', 'gzip')
 		aResp = urllib2.urlopen(request);
 		if aResp.info().get('Content-Encoding') == 'gzip':
-		    buf = StringIO( aResp.read())
-		    f = gzip.GzipFile(fileobj=buf)
-		    web_pg = f.readlines()
+			buf = StringIO( aResp.read())
+			f = gzip.GzipFile(fileobj=buf)
+			web_pg = f.readlines()
 		else:
 			web_pg = aResp.readlines()
 		
@@ -246,9 +246,9 @@ class URLParser:
 		request.add_header('Accept-encoding', 'gzip')
 		aResp = urllib2.urlopen(request);
 		if aResp.info().get('Content-Encoding') == 'gzip':
-		    buf = StringIO( aResp.read())
-		    f = gzip.GzipFile(fileobj=buf)
-		    web_pg = f.readlines()
+			buf = StringIO( aResp.read())
+			f = gzip.GzipFile(fileobj=buf)
+			web_pg = f.readlines()
 		else:
 			web_pg = aResp.readlines()
 		#print web_pg
