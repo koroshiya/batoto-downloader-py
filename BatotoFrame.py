@@ -311,9 +311,9 @@ class BatotoFrame(wx.Frame):
 	
 	def UiClear(self, last):
 		if last:
-			self.ClearLast()
+			self.ClearLast(None)
 		else:
-			self.ClearFirst()
+			self.ClearFirst(None)
 	
 	def UiGetLine(lineNum):
 		return self.URLList.GetLineText(lineNum)
