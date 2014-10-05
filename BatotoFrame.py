@@ -254,7 +254,7 @@ class BatotoFrame(wx.Frame):
 			line = self.URLList.GetLineText(totalLines - 1)
 			thread = BatotoThread(1, line, self)
 
-	def ParseAll(self):
+	def ParseAll(self, e):
 		totalLines = self.URLList.GetNumberOfLines()
 		if (totalLines > 0):
 			count = 0
