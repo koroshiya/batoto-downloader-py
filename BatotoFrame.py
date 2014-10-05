@@ -42,6 +42,44 @@ WIDTH_INITIAL = 500
 HEIGHT_MIN = 400
 HEIGHT_INITIAL = 400
 
+class BatotoThread(Thread):
+	
+	def __init__(self, pType, lines, frame, order=True):
+		Thread.__init__(self)
+		self.pType = pType
+		self.lines = lines
+		self.parser = URLParser()
+		self.frame = frame
+		self.order = order
+		self.start() #start automatically
+	
+	def run(self):
+		wx.CallAfter(self.frame.SetLocked, True)
+		if self.pType == 0:
+			for line in self.lines:
+				if self.order:
+					self.ParseFirstThread(line)
+				else:
+					self.ParseLastThread(line)
+		elif self.pType == 1:
+			self.ParseLastThread(self.lines)
+		else:
+			self.ParseFirstThread(self.lines)
+		wx.CallAfter(self.frame.SetLocked, False)
+
+	def ParseFirstThread(self, line):
+		self.ParseLine(line)
+		wx.CallAfter(self.frame.UiClear, False)
+
+	def ParseLastThread(self, line):
+		self.ParseLine(line);
+		wx.CallAfter(self.frame.UiClear, True)
+
+	def ParseLine(self, line):
+		if self.parser.testURL(line):
+			global HOME_DIR
+			self.parser.downloadFromURL(line, HOME_DIR, self.frame)
+
 class BatotoFrame(wx.Frame):
 
 	def __init__(self, *args, **kwargs):
@@ -67,9 +105,9 @@ class BatotoFrame(wx.Frame):
 		self.inputText = wx.TextCtrl(panel)
 		self.URLList = wx.TextCtrl(panel, style=wx.TE_MULTILINE|wx.TE_DONTWRAP)
 		self.URLList.SetEditable(False);
-		btnBox = self.ConstructButtons(panel)
+		self.btnBox = self.ConstructButtons(panel)
 
-		fgs.AddMany([(title), (self.inputText, 1, wx.EXPAND), btnBox, (self.URLList, 2, wx.EXPAND)])
+		fgs.AddMany([(title), (self.inputText, 1, wx.EXPAND), self.btnBox, (self.URLList, 2, wx.EXPAND)])
 
 		fgs.AddGrowableRow(1, 1)
 		fgs.AddGrowableCol(1, 1)
@@ -149,21 +187,21 @@ class BatotoFrame(wx.Frame):
 
 	def ConstructButtons(self, panel):
 		btnBox = wx.BoxSizer(wx.VERTICAL)
-		btn1 = wx.Button(panel, label='Add URL')
-		btn2 = wx.Button(panel, label='Parse First')
-		btn3 = wx.Button(panel, label='Parse Last')
-		btn4 = wx.Button(panel, label='Parse All')
-		btn5 = wx.Button(panel, label='Clear First')
-		btn6 = wx.Button(panel, label='Clear Last')
-		btn7 = wx.Button(panel, label='Clear All')
-		btn1.Bind(wx.EVT_BUTTON, self.AddURL)
-		btn2.Bind(wx.EVT_BUTTON, self.ParseFirst)
-		btn3.Bind(wx.EVT_BUTTON, self.ParseLast)
-		btn4.Bind(wx.EVT_BUTTON, self.ParseAll)
-		btn5.Bind(wx.EVT_BUTTON, self.ClearFirst)
-		btn6.Bind(wx.EVT_BUTTON, self.ClearLast)
-		btn7.Bind(wx.EVT_BUTTON, self.ClearAll)
-		btnBox.AddMany([(btn1, 1, wx.EXPAND), (btn2, 1, wx.EXPAND), (btn3, 1, wx.EXPAND), (btn4, 1, wx.EXPAND), (btn5, 1, wx.EXPAND), (btn6, 1, wx.EXPAND), (btn7, 1, wx.EXPAND)])
+		self.btn1 = wx.Button(panel, label='Add URL')
+		self.btn2 = wx.Button(panel, label='Parse First')
+		self.btn3 = wx.Button(panel, label='Parse Last')
+		self.btn4 = wx.Button(panel, label='Parse All')
+		self.btn5 = wx.Button(panel, label='Clear First')
+		self.btn6 = wx.Button(panel, label='Clear Last')
+		self.btn7 = wx.Button(panel, label='Clear All')
+		self.btn1.Bind(wx.EVT_BUTTON, self.AddURL)
+		self.btn2.Bind(wx.EVT_BUTTON, self.ParseFirst)
+		self.btn3.Bind(wx.EVT_BUTTON, self.ParseLast)
+		self.btn4.Bind(wx.EVT_BUTTON, self.ParseAll)
+		self.btn5.Bind(wx.EVT_BUTTON, self.ClearFirst)
+		self.btn6.Bind(wx.EVT_BUTTON, self.ClearLast)
+		self.btn7.Bind(wx.EVT_BUTTON, self.ClearAll)
+		btnBox.AddMany([(self.btn1, 1, wx.EXPAND), (self.btn2, 1, wx.EXPAND), (self.btn3, 1, wx.EXPAND), (self.btn4, 1, wx.EXPAND), (self.btn5, 1, wx.EXPAND), (self.btn6, 1, wx.EXPAND), (self.btn7, 1, wx.EXPAND)])
 		return btnBox;
 
 	def Import(self, e):
@@ -200,44 +238,31 @@ class BatotoFrame(wx.Frame):
 		if (len(self.URLList.GetLineText(0)) > 0):
 			self.URLList.AppendText("\n");
 		self.URLList.AppendText(line);
-
+	
 	def ParseFirst(self, e):
-		line = self.URLList.GetLineText(0);
-		if (len(line) > 0):
-			Thread(target = self.ParseFirstThread(line, e)).start();
-
-	def ParseFirstThread(self, line, e):
-		self.ParseLine(line)
-		self.ClearFirst(e);
+		totalLines = self.URLList.GetNumberOfLines()
+		if (totalLines > 0):
+			line = self.URLList.GetLineText(0)
+			thread = BatotoThread(2, line, self)
 
 	def ParseLast(self, e):
 		totalLines = self.URLList.GetNumberOfLines()
 		if totalLines < 2:
-			self.ParseFirst(e);
+			line = self.URLList.GetLineText(0)
+			thread = BatotoThread(2, line, self)
 		else:
-			line = self.URLList.GetLineText(totalLines - 1);
-			Thread(target = self.ParseLastThread(line, e)).start();
+			line = self.URLList.GetLineText(totalLines - 1)
+			thread = BatotoThread(1, line, self)
 
-	def ParseLastThread(self, line, e):
-		self.ParseLine(line);
-		self.ClearLast(e);
-
-	def ParseAll(self, e):
+	def ParseAll(self):
 		totalLines = self.URLList.GetNumberOfLines()
-		count = 0
-		while (count < totalLines):
-			if self.menuItemSettingsOrderOld.IsChecked():
-				self.ParseFirst(e)
-			else:
-				self.ParseLast(e)
-			count += 1
-
-	def ParseLine(self, line):
-		self.SetLocked(True)
-		parser = URLParser();
-		if parser.testURL(line):
-			parser.downloadFromURL(line, HOME_DIR, self.statusbar)
-		self.SetLocked(False)
+		if (totalLines > 0):
+			count = 0
+			lines = []
+			while count < totalLines:
+				lines.append(self.URLList.GetLineText(count))
+				count += 1
+			thread = BatotoThread(0, lines, self, self.menuItemSettingsOrderOld.IsChecked())
 
 	def ClearFirst(self, e):
 		end = self.URLList.GetLineLength(0) + 1;
@@ -265,6 +290,30 @@ class BatotoFrame(wx.Frame):
 
 	def SetLocked(self, lock):
 		if lock:
-			self.Disable()
+			self.btn1.Disable()
+			self.btn2.Disable()
+			self.btn3.Disable()
+			self.btn4.Disable()
+			self.btn5.Disable()
+			self.btn6.Disable()
+			self.btn7.Disable()
 		else:
-			self.Enable()
+			self.btn1.Enable()
+			self.btn2.Enable()
+			self.btn3.Enable()
+			self.btn4.Enable()
+			self.btn5.Enable()
+			self.btn6.Enable()
+			self.btn7.Enable()
+	
+	def UiPrint(self, text):
+		self.statusbar.SetStatusText(text)
+	
+	def UiClear(self, last):
+		if last:
+			self.ClearLast()
+		else:
+			self.ClearFirst()
+	
+	def UiGetLine(lineNum):
+		return self.URLList.GetLineText(lineNum)
