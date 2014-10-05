@@ -101,6 +101,8 @@ class URLParser:
 		chapters = self.findChapters(url)
 		
 		for chapter in chapters:
+			print "Indexing " + chapter
+			print "-----------------------"
 			self.downloadFromURL(chapter, newDir, statusbar)
 	
 	def findChapters(self, url):
@@ -171,9 +173,9 @@ class URLParser:
 			try:
 				arg = URLParser.AbsoluteFolder(self, url) + str(i);
 				statusbar.SetStatusText('Indexing page ' + str(i))
+				print 'Indexing page ' + str(i)
 				regex = URLParser.findFormat(self, arg, False);
 				if regex and regex[-4:] in [".jpg", ".png"]:
-					print regex
 					if URLParser.Download(self, regex, workDir, statusbar):
 						urls.append(regex)
 				else:
@@ -181,7 +183,10 @@ class URLParser:
 			except Exception, e:
 				boolContinue = False
 			i+=1
-				
+		
+		print "\n"		
+		print "Downloading " + lastPath
+		print "-----------------------"
 		statusbar.SetStatusText('Downloading '+lastPath)
 		if len(urls) > 0:
 			for url in urls:
@@ -197,10 +202,14 @@ class URLParser:
 				p.join()
 
 			self.done_queue.put('STOP')
+			print "\n"
 
 			for status in iter(self.done_queue.get, 'STOP'):
 				print status
 		statusbar.SetStatusText('Finished')
+		print "\n"
+		print "Finished downloading chapter"
+		print "\n"
 		
 		return i != 1;
 	
