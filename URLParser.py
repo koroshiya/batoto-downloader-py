@@ -127,9 +127,12 @@ class URLParser:
 						chapters.append(inputLine)
 					lang = None
 			else:
-				if "lang_English" in line:
-					lang = "English"
-				else:
+				try:
+					if "lang_English" in line:
+						lang = "English"
+					else:
+						lang = None
+				except UnicodeDecodeError:
 					lang = None
 		
 		return chapters
