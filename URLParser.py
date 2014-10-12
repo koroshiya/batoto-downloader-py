@@ -100,7 +100,7 @@ class URLParser:
 		
 		chapters = self.findChapters(url)
 		
-		for chapter in chapters:
+		for chapter in chapters[::-1]:
 			print "Indexing " + chapter
 			print "-----------------------"
 			self.downloadFromURL(chapter, newDir, frame)
