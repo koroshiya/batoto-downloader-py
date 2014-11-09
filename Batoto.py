@@ -16,12 +16,12 @@ except ImportError:
 import os
 import BatotoFrame
 
-os.chdir(os.path.dirname(sys.argv[0]))
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 batoto = wx.App(False)
 
 options = wx.MINIMIZE_BOX | wx.MAXIMIZE_BOX | wx.RESIZE_BORDER | wx.SYSTEM_MENU | wx.CAPTION | wx.CLOSE_BOX
 frame = wx.Frame(None, style=options)
-f = BatotoFrame.BatotoFrame(frame);
+f = BatotoFrame.BatotoFrame(frame)
 
 batoto.MainLoop()

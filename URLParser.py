@@ -23,12 +23,13 @@ from StringIO import StringIO
 import gzip
 import multiprocessing
 from multiprocessing import Queue, Process, current_process
+from threading import Thread
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
 class URLParser:
-	BUFFER = 4096;
+	BUFFER = 4096
 	
 	work_queue = Queue()
 	done_queue = Queue()
@@ -73,7 +74,7 @@ class URLParser:
 				for ext in [".jpg", ".png"]:
 					nUrl = oldPath + str(i) + ext
 					print "Testing URL:", nUrl
-					if URLParser.testUrl(nUrl):
+					if self.testURL(nUrl):
 						print 'Downloading: ' + padding + ext
 						wx.CallAfter(frame.UiPrint, 'Downloading: ' + padding + ext)
 						urllib.urlretrieve(nUrl, newDir + "/" + padding + ext)
@@ -84,7 +85,7 @@ class URLParser:
 			i += 1
 	
 	def downloadFullSeries(self, url, home, frame):
-		newDir = "";
+		newDir = ""
 		if url[-1] != "/":
 			url += "/"
 		try:
@@ -93,7 +94,7 @@ class URLParser:
 			print repr(e)
 			return False
 		
-		workDir = home;
+		workDir = home
 		if not os.path.isdir(newDir):
 			os.makedirs(newDir)
 		workDir = newDir
@@ -109,7 +110,7 @@ class URLParser:
 		
 		request = urllib2.Request(url)
 		request.add_header('Accept-encoding', 'gzip')
-		aResp = urllib2.urlopen(request);
+		aResp = urllib2.urlopen(request)
 		if aResp.info().get('Content-Encoding') == 'gzip':
 			buf = StringIO( aResp.read())
 			f = gzip.GzipFile(fileobj=buf)
@@ -149,8 +150,8 @@ class URLParser:
 		else:
 			if (not oldPath[-1] == "/" and not oldPath[-1] == "/1"): oldPath += "/1"
 		
-		url = oldPath;
-		newDir = "";
+		url = oldPath
+		newDir = ""
 		lastPath = URLParser.LastFolderInPath(self, url)
 		try:
 			newDir = home + "/" + lastPath
@@ -158,7 +159,7 @@ class URLParser:
 			print repr(e)
 			return False
 		
-		workDir = home;
+		workDir = home
 		if not os.path.isdir(newDir):
 			os.makedirs(newDir)
 		workDir = newDir
@@ -174,7 +175,7 @@ class URLParser:
 				arg = URLParser.AbsoluteFolder(self, url) + str(i)
 				wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(i))
 				print 'Indexing page ' + str(i)
-				regex = URLParser.findFormat(self, arg, False);
+				regex = URLParser.findFormat(self, arg, False)
 				if regex and regex[-4:] in [".jpg", ".png"]:
 					if URLParser.Download(self, regex, workDir, frame):
 						urls.append(regex)
@@ -193,7 +194,10 @@ class URLParser:
 				self.work_queue.put(url)
 				
 			for w in xrange(self.workers):
-				p = Process(target=self.worker, args=(self.work_queue, self.done_queue, workDir, frame))
+				if os.name == 'nt':
+					p = Thread(target=self.worker, args=(self.work_queue, self.done_queue, workDir, frame))
+				else:
+					p = Process(target=self.worker, args=(self.work_queue, self.done_queue, workDir, frame))
 				p.start()
 				self.processes.append(p)
 				self.work_queue.put('STOP')
@@ -212,26 +216,26 @@ class URLParser:
 		print "Finished downloading chapter"
 		print "\n"
 		
-		return i != 1;
+		return i != 1
 	
 	def findExtension(self, path, i):
 	
 		extensions = [".png", ".jpg", ".gif"]
 
 		for s in extensions:
-			if (testURL(path + s)): return path + s
+			if (self.testURL(path + s)): return path + s
 		
-		form = FormatNumber(i + 1, 2);
+		form = self.FormatNumber(i + 1, 2)
 		for s in extensions:
 			url = path + "-" + form + s
-			if (testURL(url)): return url
+			if (self.testURL(url)): return url
 		
 
-		return null;	
+		return None
 	
 	def testURL(self, url):
 		
-		code = 0;
+		code = 0
 		try:
 			urllib2.urlopen(url)
 			return True
@@ -244,7 +248,7 @@ class URLParser:
 		
 		request = urllib2.Request(url)
 		request.add_header('Accept-encoding', 'gzip')
-		aResp = urllib2.urlopen(request);
+		aResp = urllib2.urlopen(request)
 		if aResp.info().get('Content-Encoding') == 'gzip':
 			buf = StringIO( aResp.read())
 			f = gzip.GzipFile(fileobj=buf)
@@ -259,19 +263,19 @@ class URLParser:
 				if mn:
 					inputLine = mn.group(0)[5:-1]
 					inp = "" if inputLine[0:10] == "http://arc" else "img"
-					return URLParser.AbsoluteFolder(inputLine) + inp if dire else inputLine
+					return self.AbsoluteFolder(inputLine) + inp if dire else inputLine
 		
 		return False
 	
 	def Download(self, url, workDir, frame):
-		filep = URLParser.LastFileInPath(self, url);
+		filep = URLParser.LastFileInPath(self, url)
 		lFile = workDir + "/" + filep
 		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(urllib2.urlopen(url).headers["Content-Length"]):
 			wx.CallAfter(frame.UiPrint, filep + ' already exists')
 			return False
 		else:
 			return True
-	
+
 	def LastFileInPath(self, path):
 		start = path.rindex('/')
 		return path[start + 1:]
@@ -288,7 +292,7 @@ class URLParser:
 	
 	def FormatNumber(self, i, places):
 		strBuffer = ""
-		precede = 0;
+		precede = 0
 		
 		if (i < 10):
 			precede = 1
@@ -302,6 +306,6 @@ class URLParser:
 			strBuffer += "0"
 			a += 1
 		
-		strBuffer += i;
+		strBuffer += i
 		
 		return strBuffer

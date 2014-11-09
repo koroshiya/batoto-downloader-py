@@ -14,8 +14,8 @@ except ImportError:
 	print "You can download wxpython at: http://www.wxpython.org/download.php#stable \n"
 	sys.exit()
 from URLParser import URLParser
-from os.path import expanduser
-from os.path import isfile
+import os
+from os.path import expanduser, isfile, join
 from threading import Thread
 
 FILE_IMPORT = 650
@@ -35,7 +35,9 @@ SETTING_ORDER = 680
 SETTING_ORDER_MENU = 681
 
 HOME_DIR = expanduser("~")
-SAVE_FILE = HOME_DIR + "/batotolist.txt"
+if os.name == 'nt':
+	HOME_DIR = join(HOME_DIR, "Documents")
+SAVE_FILE = join(HOME_DIR, "batotolist.txt")
 
 WIDTH_MIN = 500
 WIDTH_INITIAL = 500
@@ -72,7 +74,7 @@ class BatotoThread(Thread):
 		wx.CallAfter(self.frame.UiClear, False)
 
 	def ParseLastThread(self, line):
-		self.ParseLine(line);
+		self.ParseLine(line)
 		wx.CallAfter(self.frame.UiClear, True)
 
 	def ParseLine(self, line):
@@ -88,13 +90,13 @@ class BatotoFrame(wx.Frame):
 		self.Bind(wx.EVT_CLOSE, self.Exit)
 		self.SetTitle("Batoto Downloader")
 		self.SetIcon(wx.Icon('jr.png', wx.BITMAP_TYPE_PNG))
-		self.SetSize((WIDTH_INITIAL,HEIGHT_INITIAL));
+		self.SetSize((WIDTH_INITIAL,HEIGHT_INITIAL))
 		self.SetMinSize((WIDTH_MIN,HEIGHT_MIN))
 		self.InitUI()
 
 	def InitUI(self):
 
-		self.ConstructMenu();
+		self.ConstructMenu()
 
 		panel = wx.Panel(self)
 		hbox = wx.BoxSizer(wx.HORIZONTAL)
@@ -104,7 +106,7 @@ class BatotoFrame(wx.Frame):
 
 		self.inputText = wx.TextCtrl(panel)
 		self.URLList = wx.TextCtrl(panel, style=wx.TE_MULTILINE|wx.TE_DONTWRAP)
-		self.URLList.SetEditable(False);
+		self.URLList.SetEditable(False)
 		self.btnBox = self.ConstructButtons(panel)
 
 		fgs.AddMany([(title), (self.inputText, 1, wx.EXPAND), self.btnBox, (self.URLList, 2, wx.EXPAND)])
@@ -120,7 +122,7 @@ class BatotoFrame(wx.Frame):
 
 	def ConstructMenu(self):
 
-		menubar = wx.MenuBar();
+		menubar = wx.MenuBar()
 		menuFile = wx.Menu()
 		menuParse = wx.Menu()
 		menuClear = wx.Menu()
@@ -183,7 +185,7 @@ class BatotoFrame(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.ClearAll, id=FILE_CLEAR_ALL)
 
 		self.statusbar = self.CreateStatusBar()
-		self.SetMenuBar(menubar);
+		self.SetMenuBar(menubar)
 
 	def ConstructButtons(self, panel):
 		btnBox = wx.BoxSizer(wx.VERTICAL)
@@ -202,7 +204,7 @@ class BatotoFrame(wx.Frame):
 		self.btn6.Bind(wx.EVT_BUTTON, self.ClearLast)
 		self.btn7.Bind(wx.EVT_BUTTON, self.ClearAll)
 		btnBox.AddMany([(self.btn1, 1, wx.EXPAND), (self.btn2, 1, wx.EXPAND), (self.btn3, 1, wx.EXPAND), (self.btn4, 1, wx.EXPAND), (self.btn5, 1, wx.EXPAND), (self.btn6, 1, wx.EXPAND), (self.btn7, 1, wx.EXPAND)])
-		return btnBox;
+		return btnBox
 
 	def Import(self, e):
 		openFileDialog = wx.FileDialog(self, "Open Text file", "", "", "Text files (*.txt)|*.txt", wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
@@ -228,16 +230,16 @@ class BatotoFrame(wx.Frame):
 		wx.Exit()
 
 	def AddURL(self, e):
-		line = self.inputText.GetLineText(0);
+		line = self.inputText.GetLineText(0)
 		if (line[:4] == "http" or line[:4] == "www."):
-			self.inputText.Clear();
-			self.DirectlyAddURL(line);
-			self.Save(e);
+			self.inputText.Clear()
+			self.DirectlyAddURL(line)
+			self.Save(e)
 
 	def DirectlyAddURL(self, line):
 		if (len(self.URLList.GetLineText(0)) > 0):
-			self.URLList.AppendText("\n");
-		self.URLList.AppendText(line);
+			self.URLList.AppendText("\n")
+		self.URLList.AppendText(line)
 	
 	def ParseFirst(self, e):
 		totalLines = self.UiGetNumberOfLines()
@@ -262,24 +264,24 @@ class BatotoFrame(wx.Frame):
 			thread = BatotoThread(0, lines, self, self.menuItemSettingsOrderOld.IsChecked())
 
 	def ClearFirst(self, e):
-		end = self.URLList.GetLineLength(0) + 1;
+		end = self.URLList.GetLineLength(0) + 1
 		self.URLList.Remove(0,end)
-		self.Save(e);
+		self.Save(e)
 
 	def ClearLast(self, e):
 		totalLines = self.UiGetNumberOfLines()
 		if totalLines < 2:
-			self.ClearAll(e);
+			self.ClearAll(e)
 		else:
-			length = self.URLList.GetLineLength(totalLines - 1) + 1;
-			end = self.URLList.GetLastPosition();
+			length = self.URLList.GetLineLength(totalLines - 1) + 1
+			end = self.URLList.GetLastPosition()
 			start = end - length
 			self.URLList.Remove(start,end)
-			self.Save(e);
+			self.Save(e)
 
 	def ClearAll(self, e):
-		self.URLList.Clear();
-		self.Save(e);
+		self.URLList.Clear()
+		self.Save(e)
 
 	def LoadListFromFile(self):
 		if isfile(SAVE_FILE):
@@ -311,8 +313,8 @@ class BatotoFrame(wx.Frame):
 			self.ClearLast(None)
 		else:
 			self.ClearFirst(None)
-	
-	def UiGetLine(lineNum):
+
+	def UiGetLine(self, lineNum):
 		return self.URLList.GetLineText(lineNum)
 
 	def UiGetNumberOfLines(self):
