@@ -256,12 +256,19 @@ class BatotoFrame(wx.Frame):
 	def ParseAll(self, e):
 		totalLines = self.UiGetNumberOfLines()
 		if (totalLines > 0):
-			count = 0
 			lines = []
-			while count < totalLines:
-				lines.append(self.URLList.GetLineText(count))
-				count += 1
-			thread = BatotoThread(0, lines, self, self.menuItemSettingsOrderOld.IsChecked())
+			oldOrder = self.menuItemSettingsOrderOld.IsChecked()
+			if oldOrder:
+				count = 0
+				while count < totalLines:
+					lines.append(self.URLList.GetLineText(count))
+					count += 1
+			else:
+				count = totalLines
+				while count > 0:
+					lines.append(self.URLList.GetLineText(count))
+					count -= 1
+			self.thread = BatotoThread(0, lines, self, oldOrder)
 
 	def ClearFirst(self, e):
 		end = self.URLList.GetLineLength(0) + 1
