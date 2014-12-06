@@ -186,9 +186,9 @@ class URLParser:
 				arg = URLParser.AbsoluteFolder(self, url) + str(i)
 				wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(i))
 				print 'Indexing page ' + str(i)
-				regex = URLParser.findFormat(self, arg, False)
-				if regex and regex[-4:] in [".jpg", ".png"]:
-					if URLParser.Download(self, regex, workDir, frame):
+				if regex:
+					extension = os.path.splitext(regex)[1].lower()
+					if extension in [".jpeg", ".jpg", ".png"] and URLParser.Download(self, regex, workDir, frame):
 						urls.append(regex)
 				else:
 					boolContinue = False
