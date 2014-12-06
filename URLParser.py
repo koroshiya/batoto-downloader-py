@@ -36,26 +36,35 @@ class URLParser:
 	processes = []
 	workers = 4
 	IOError_RepeatCount = 3
+	cancel = False
+
+	def Cancel(self, state):
+		self.cancel = True
 	
 	def ContinueDownload(self, url, workdir, frame):
-		filep = URLParser.LastFileInPath(self, url)
-		#frame.SetStatusText('Downloading: ' + filep)
-		print 'Downloading: ' + filep
-		repeat = True
-		repeatCount = self.IOError_RepeatCount
-		while repeat:
-			repeat = False
-			try:
-				urllib.urlretrieve(url, workdir + "/" + filep)
-			except IOError:
-				repeat = True
-				repeatCount -= 1
-				if repeatCount < 0:
-					raise
-		return "Page downloaded"
+		if not self.cancel:
+			filep = URLParser.LastFileInPath(self, url)
+			#frame.SetStatusText('Downloading: ' + filep)
+			print 'Downloading: ' + filep
+			repeat = True
+			repeatCount = self.IOError_RepeatCount
+			while repeat:
+				repeat = False
+				try:
+					urllib.urlretrieve(url, workdir + "/" + filep)
+				except IOError:
+					repeat = True
+					repeatCount -= 1
+					if repeatCount < 0:
+						raise
+			return "Page downloaded"
+		else:
+			return "Page skipped"
 	
 	def worker(self, work_queue, done_queue, workdir, frame):
 		for url in iter(work_queue.get, 'STOP'):
+			if self.cancel:
+				return False
 			status_code = URLParser.ContinueDownload(self, url, workdir, frame)
 			done_queue.put("%s - %s got %s." % (current_process().name, url, status_code))
 		return True
@@ -113,6 +122,8 @@ class URLParser:
 		chapters = self.findChapters(url)
 		
 		for chapter in chapters[::-1]:
+			if self.cancel:
+				break
 			print "Indexing " + chapter
 			print "-----------------------"
 			self.downloadFromURL(chapter, newDir, frame)
@@ -181,11 +192,12 @@ class URLParser:
 		urls = []
 		wx.CallAfter(frame.UiPrint, 'Indexing...')
 		
-		while boolContinue:
+		while boolContinue and not self.cancel:
 			try:
 				arg = URLParser.AbsoluteFolder(self, url) + str(i)
 				wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(i))
 				print 'Indexing page ' + str(i)
+				regex = URLParser.findFormat(self, arg, False)
 				if regex:
 					extension = os.path.splitext(regex)[1].lower()
 					if extension in [".jpeg", ".jpg", ".png"]:
@@ -199,16 +211,24 @@ class URLParser:
 				boolContinue = False
 			i+=1
 		
+		if self.cancel:
+			return False
+		
 		print "\n"		
 		print "Downloading " + lastPath
 		print "-----------------------"
 		wx.CallAfter(frame.UiPrint, 'Downloading '+lastPath)
+		wx.CallAfter(frame.EnableCancel, False)
 		if len(urls) > 0:
 			for url in urls:
+				if self.cancel:
+					break
 				self.work_queue.put(url)
 				
 			for w in xrange(self.workers):
-				if os.name == 'nt':
+				if self.cancel:
+					return False
+				elif os.name == 'nt':
 					p = Thread(target=self.worker, args=(self.work_queue, self.done_queue, workDir, frame))
 				else:
 					p = Process(target=self.worker, args=(self.work_queue, self.done_queue, workDir, frame))
@@ -217,6 +237,8 @@ class URLParser:
 				self.work_queue.put('STOP')
 
 			for p in self.processes:
+				if self.cancel:
+					return False
 				p.join()
 
 			self.done_queue.put('STOP')
@@ -226,11 +248,12 @@ class URLParser:
 				print status
 		
 		wx.CallAfter(frame.UiPrint, 'Finished')
+		wx.CallAfter(frame.EnableCancel, True)
 		print "\n"
 		print "Finished downloading chapter"
 		print "\n"
 		
-		return i != 1
+		return not self.cancel and i != 1
 	
 	def findExtension(self, path, i):
 	
@@ -282,6 +305,8 @@ class URLParser:
 		return False
 	
 	def Download(self, url, workDir, frame):
+		if self.cancel:
+			return False
 		filep = URLParser.LastFileInPath(self, url)
 		lFile = workDir + "/" + filep
 		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(urllib2.urlopen(url).headers["Content-Length"]):
