@@ -35,12 +35,23 @@ class URLParser:
 	done_queue = Queue()
 	processes = []
 	workers = 4
+	IOError_RepeatCount = 3
 	
 	def ContinueDownload(self, url, workdir, frame):
 		filep = URLParser.LastFileInPath(self, url)
 		#frame.SetStatusText('Downloading: ' + filep)
 		print 'Downloading: ' + filep
-		urllib.urlretrieve(url, workdir + "/" + filep)
+		repeat = True
+		repeatCount = self.IOError_RepeatCount
+		while repeat:
+			repeat = False
+			try:
+				urllib.urlretrieve(url, workdir + "/" + filep)
+			except IOError:
+				repeat = True
+				repeatCount -= 1
+				if repeatCount < 0:
+					raise
 		return "Page downloaded"
 	
 	def worker(self, work_queue, done_queue, workdir, frame):
