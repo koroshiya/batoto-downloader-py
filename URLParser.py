@@ -188,8 +188,11 @@ class URLParser:
 				print 'Indexing page ' + str(i)
 				if regex:
 					extension = os.path.splitext(regex)[1].lower()
-					if extension in [".jpeg", ".jpg", ".png"] and URLParser.Download(self, regex, workDir, frame):
-						urls.append(regex)
+					if extension in [".jpeg", ".jpg", ".png"]:
+						if URLParser.Download(self, regex, workDir, frame):
+							urls.append(regex)
+					else:
+						boolContinue = False
 				else:
 					boolContinue = False
 			except Exception, e:
