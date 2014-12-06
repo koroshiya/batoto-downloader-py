@@ -22,8 +22,11 @@ import traceback
 from StringIO import StringIO
 import gzip
 import multiprocessing
-from multiprocessing import Queue, Process, current_process
-from threading import Thread
+from multiprocessing import Queue, current_process
+if os.name == 'nt':
+	from threading import Thread
+else:
+	from multiprocessing import Process
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
@@ -37,6 +40,7 @@ class URLParser:
 	workers = 4
 	IOError_RepeatCount = 3
 	cancel = False
+	extensions = [".jpeg", ".jpg", ".png", ".gif"]
 
 	def Cancel(self, state):
 		self.cancel = True
@@ -91,7 +95,7 @@ class URLParser:
 			else:
 				return
 			try:
-				for ext in [".jpg", ".png"]:
+				for ext in self.extensions:
 					nUrl = oldPath + str(i) + ext
 					print "Testing URL:", nUrl
 					if self.testURL(nUrl):
@@ -200,7 +204,7 @@ class URLParser:
 				regex = URLParser.findFormat(self, arg, False)
 				if regex:
 					extension = os.path.splitext(regex)[1].lower()
-					if extension in [".jpeg", ".jpg", ".png"]:
+					if extension in self.extensions:
 						if URLParser.Download(self, regex, workDir, frame):
 							urls.append(regex)
 					else:
@@ -256,14 +260,12 @@ class URLParser:
 		return not self.cancel and i != 1
 	
 	def findExtension(self, path, i):
-	
-		extensions = [".png", ".jpg", ".gif"]
 
-		for s in extensions:
+		for s in self.extensions:
 			if (self.testURL(path + s)): return path + s
 		
 		form = self.FormatNumber(i + 1, 2)
-		for s in extensions:
+		for s in self.extensions:
 			url = path + "-" + form + s
 			if (self.testURL(url)): return url
 		
