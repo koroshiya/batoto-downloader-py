@@ -14,7 +14,6 @@ except ImportError:
 	print "You can download wxpython at: http://www.wxpython.org/download.php#stable \n"
 	sys.exit()
 
-import urllib
 import urllib2
 import re
 import os
@@ -32,8 +31,6 @@ reload(sys)
 sys.setdefaultencoding("utf-8")
 
 class URLParser:
-	BUFFER = 4096
-	
 	work_queue = Queue()
 	done_queue = Queue()
 	processes = []
@@ -41,6 +38,14 @@ class URLParser:
 	IOError_RepeatCount = 3
 	cancel = False
 	extensions = [".jpeg", ".jpg", ".png", ".gif"]
+	
+	proxy = None #If you want to use a HTTP proxy, the format is: http://ipaddress:port
+	#eg. proxy = "http://192.168.1.112:8118"
+	#This should be saved to & loaded from a config file in the future.
+	if proxy != None:
+		proxy_support = urllib2.ProxyHandler({"http":proxy})
+		opener = urllib2.build_opener(proxy_support)
+		urllib2.install_opener(opener)
 
 	def Cancel(self, state):
 		self.cancel = True
@@ -55,7 +60,10 @@ class URLParser:
 			while repeat:
 				repeat = False
 				try:
-					urllib.urlretrieve(url, workdir + "/" + filep)
+					f = urllib2.urlopen(url)
+					data = f.read()
+					with open(workdir + "/" + filep, "wb") as dlFile:
+						dlFile.write(data)
 				except IOError:
 					repeat = True
 					repeatCount -= 1
@@ -101,7 +109,10 @@ class URLParser:
 					if self.testURL(nUrl):
 						print 'Downloading: ' + padding + ext
 						wx.CallAfter(frame.UiPrint, 'Downloading: ' + padding + ext)
-						urllib.urlretrieve(nUrl, newDir + "/" + padding + ext)
+						f = urllib2.urlopen(nUrl)
+						data = f.read()
+						with open(newDir + "/" + padding + ext, "wb") as dlFile:
+							dlFile.write(data)
 						boolContinue = True
 						break
 			except Exception, e:
