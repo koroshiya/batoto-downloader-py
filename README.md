@@ -4,6 +4,7 @@ batoto-downloader-py
 Uses wxpython: http://www.wxpython.org/download.php#stable<br>
 Testing done with python 2.7.5 and wxpython 2.8.12.1<br>
 Also uses lxml: http://lxml.de/installation.html<br>
+<h4>*Note: if you cannot use lxml, or if you encounter problems with urllib3, you can still access the old, more thoroughly-tested version here: https://github.com/koroshiya/batoto-downloader-py/tree/urllib2</h4>
 <br>
 batoto-downloader-py is a graphical utility for downloading chapters and series from the website Batoto.<br>
 Files will be downloaded into your home directory (or Documents directory for Windows) and placed
