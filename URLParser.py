@@ -14,13 +14,16 @@ except ImportError:
 	print "You can download wxpython at: http://www.wxpython.org/download.php#stable \n"
 	sys.exit()
 
-import urllib2
-import re
+try:
+	from lxml import html as hlxml
+except ImportError:
+	print "You do not appear to have lxml installed.\n"
+	print "Without lxml, this program cannot run.\n"
+	print "You can download lxml at: http://lxml.de/installation.html \n"
+	sys.exit()
+
+import urllib3
 import os
-import traceback
-from StringIO import StringIO
-import gzip
-import multiprocessing
 from multiprocessing import Queue, current_process
 if os.name == 'nt':
 	from threading import Thread
@@ -43,9 +46,9 @@ class URLParser:
 	#eg. proxy = "http://192.168.1.112:8118"
 	#This should be saved to & loaded from a config file in the future.
 	if proxy != None:
-		proxy_support = urllib2.ProxyHandler({"http":proxy})
-		opener = urllib2.build_opener(proxy_support)
-		urllib2.install_opener(opener)
+		http = urllib3.ProxyManager(proxy)
+	else:
+		http = urllib3.PoolManager()
 
 	def Cancel(self, state):
 		self.cancel = True
@@ -60,10 +63,9 @@ class URLParser:
 			while repeat:
 				repeat = False
 				try:
-					f = urllib2.urlopen(url)
-					data = f.read()
+					r = self.http.request('GET', url)
 					with open(workdir + "/" + filep, "wb") as dlFile:
-						dlFile.write(data)
+						dlFile.write(r.data)
 				except IOError:
 					repeat = True
 					repeatCount -= 1
@@ -81,15 +83,11 @@ class URLParser:
 			done_queue.put("%s - %s got %s." % (current_process().name, url, status_code))
 		return True
 	
-	def arbitraryDownload(self, oldPath, home, frame):
-		if (not(oldPath[:7] == "http://" or oldPath[:8] == "https://")): return False
-		try:
-			newDir = home + "/" + URLParser.LastFolderInPath(self, oldPath)
-		except Exception, e:
-			print repr(e)
-			return False
-		if not os.path.isdir(newDir):
-			os.makedirs(newDir)
+	def arbitraryDownload(self, url, home, frame):
+		if (not(url[:7] == "http://" or url[:8] == "https://")): return False
+		workDir = home + "/" + URLParser.LastFolderInPath(self, url)
+		if not os.path.isdir(workDir):
+			os.makedirs(workDir)
 		i = 1
 		boolContinue = True
 		while boolContinue:
@@ -104,14 +102,13 @@ class URLParser:
 				return
 			try:
 				for ext in self.extensions:
-					nUrl = oldPath + str(i) + ext
+					nUrl = url + str(i) + ext
 					print "Testing URL:", nUrl
-					if self.testURL(nUrl):
+					data = self.testURL(nUrl)
+					if data != False:
 						print 'Downloading: ' + padding + ext
 						wx.CallAfter(frame.UiPrint, 'Downloading: ' + padding + ext)
-						f = urllib2.urlopen(nUrl)
-						data = f.read()
-						with open(newDir + "/" + padding + ext, "wb") as dlFile:
+						with open(workDir + "/" + padding + ext, "wb") as dlFile:
 							dlFile.write(data)
 						boolContinue = True
 						break
@@ -120,19 +117,17 @@ class URLParser:
 			i += 1
 	
 	def downloadFullSeries(self, url, home, frame):
-		newDir = ""
+
 		if url[-1] != "/":
 			url += "/"
 		try:
-			newDir = home + "/" + URLParser.LastFolderInPath(self, url)
+			workDir = home + "/" + URLParser.LastFolderInPath(self, url)
 		except Exception, e:
 			print repr(e)
 			return False
 		
-		workDir = home
-		if not os.path.isdir(newDir):
-			os.makedirs(newDir)
-		workDir = newDir
+		if not os.path.isdir(workDir):
+			os.makedirs(workDir)
 		
 		chapters = self.findChapters(url)
 		
@@ -141,73 +136,47 @@ class URLParser:
 				break
 			print "Indexing " + chapter
 			print "-----------------------"
-			self.downloadFromURL(chapter, newDir, frame)
+			self.downloadFromURL(chapter, workDir, frame)
 	
 	def findChapters(self, url):
 		
-		request = urllib2.Request(url)
-		request.add_header('Accept-encoding', 'gzip')
-		aResp = urllib2.urlopen(request)
-		if aResp.info().get('Content-Encoding') == 'gzip':
-			buf = StringIO( aResp.read())
-			f = gzip.GzipFile(fileobj=buf)
-			web_pg = f.readlines()
-		else:
-			web_pg = aResp.readlines()
-		
-		pattern = "http://bato.to/read/\S*\""
+		r = self.http.request('GET', nUrl)
+
+		dom = hlxml.fromstring(r.data)
+		trs = dom.xpath("//tr")
 		chapters = []
-		lang = None
-		for line in web_pg:
-			if lang == "English":
-				m = re.search(pattern, line)
-				if m:
-					inputLine = m.group(0)[:-1]
-					if not "/" in inputLine[-4]:
-						chapters.append(inputLine)
-					lang = None
-			else:
-				try:
-					if "lang_English" in line:
-						lang = "English"
-					else:
-						lang = None
-				except UnicodeDecodeError:
-					lang = None
+
+		for tr in trs:
+			trClass = tr.get('class')
+			if trClass is not None and "lang_English" in trClass:
+				aList = tr.xpath("//a")
+				for a in aList:
+					href = a.get('href')
+					if href is not None and 'http://bato.to/read/' in href:
+						chapters.append(href)
 		
 		return chapters
 
-	def downloadFromURL(self, oldPath, home, frame):
-		if (not(oldPath[:14] == "http://bato.to" or oldPath[:15] == "https://bato.to" or oldPath[:18] == "http://www.bato.to" or oldPath[:19] == "https://www.bato.to")):
-			URLParser.arbitraryDownload(self, oldPath, home, frame)
+	def downloadFromURL(self, url, home, frame):
+		if (not(url[:14] == "http://bato.to" or url[:15] == "https://bato.to" or url[:18] == "http://www.bato.to" or url[:19] == "https://www.bato.to")):
+			URLParser.arbitraryDownload(self, url, home, frame)
 			return False
-		if "bato.to/comic/" in oldPath:
-			URLParser.downloadFullSeries(self, oldPath, home, frame)
+		if "bato.to/comic/" in url:
+			URLParser.downloadFullSeries(self, url, home, frame)
 			return True
 		else:
-			if (not oldPath[-1] == "/" and not oldPath[-1] == "/1"): oldPath += "/1"
+			if (not url[-1] == "/" and not url[-1] == "/1"): url += "/1"
 		
-		url = oldPath
-		newDir = ""
 		lastPath = URLParser.LastFolderInPath(self, url)
-		try:
-			newDir = home + "/" + lastPath
-		except Exception, e:
-			print repr(e)
-			return False
+		workDir = home + "/" + lastPath
+		if not os.path.isdir(workDir):
+			os.makedirs(workDir)
 		
-		workDir = home
-		if not os.path.isdir(newDir):
-			os.makedirs(newDir)
-		workDir = newDir
-		
-		regex = ""
-		boolContinue = True
 		i = 1
 		urls = []
 		wx.CallAfter(frame.UiPrint, 'Indexing...')
 		
-		while boolContinue and not self.cancel:
+		while not self.cancel:
 			try:
 				arg = URLParser.AbsoluteFolder(self, url) + str(i)
 				wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(i))
@@ -219,12 +188,12 @@ class URLParser:
 						if URLParser.Download(self, regex, workDir, frame):
 							urls.append(regex)
 					else:
-						boolContinue = False
+						break
 				else:
-					boolContinue = False
+					break
 			except Exception, e:
-				boolContinue = False
-			i+=1
+				break
+			i += 1
 		
 		if self.cancel:
 			return False
@@ -232,8 +201,10 @@ class URLParser:
 		print "\n"		
 		print "Downloading " + lastPath
 		print "-----------------------"
+
 		wx.CallAfter(frame.UiPrint, 'Downloading '+lastPath)
 		wx.CallAfter(frame.EnableCancel, False)
+
 		if len(urls) > 0:
 			for url in urls:
 				if self.cancel:
@@ -261,6 +232,8 @@ class URLParser:
 
 			for status in iter(self.done_queue.get, 'STOP'):
 				print status
+		else:
+			print "No URLs found"
 		
 		wx.CallAfter(frame.UiPrint, 'Finished')
 		wx.CallAfter(frame.EnableCancel, True)
@@ -273,47 +246,32 @@ class URLParser:
 	def findExtension(self, path, i):
 
 		for s in self.extensions:
-			if (self.testURL(path + s)): return path + s
+			if (self.testURL(path + s) != False):
+				return path + s
 		
 		form = self.FormatNumber(i + 1, 2)
 		for s in self.extensions:
 			url = path + "-" + form + s
-			if (self.testURL(url)): return url
-		
+			if (self.testURL(url) != False):
+				return url
 
 		return None
 	
 	def testURL(self, url):
 		
-		code = 0
-		try:
-			urllib2.urlopen(url)
-			return True
-		except Exception, ex:
-			print repr(ex)
-		
-		return False
+		r = self.http.request('GET', url)
+		return r.data if r.status == 200 else False
 	
 	def findFormat(self, url, dire):
 		
-		request = urllib2.Request(url)
-		request.add_header('Accept-encoding', 'gzip')
-		aResp = urllib2.urlopen(request)
-		if aResp.info().get('Content-Encoding') == 'gzip':
-			buf = StringIO( aResp.read())
-			f = gzip.GzipFile(fileobj=buf)
-			web_pg = f.readlines()
-		else:
-			web_pg = aResp.readlines()
-		#print web_pg
-		
-		for line in web_pg:
-			if "id=\"comic_page\"" in line:
-				mn = re.search('src=\S*\"', line)
-				if mn:
-					inputLine = mn.group(0)[5:-1]
-					inp = "" if inputLine[0:10] == "http://arc" else "img"
-					return self.AbsoluteFolder(inputLine) + inp if dire else inputLine
+		r = self.http.request('GET', url)
+		dom = hlxml.fromstring(r.data)
+		img = dom.xpath(".//*[@id='comic_page']")[0]
+		src = img.get('src')
+
+		if src is not None:
+			inp = "" if src[0:10] == "http://arc" else "img"
+			return self.AbsoluteFolder(src) + inp if dire else src
 		
 		return False
 	
@@ -322,7 +280,7 @@ class URLParser:
 			return False
 		filep = URLParser.LastFileInPath(self, url)
 		lFile = workDir + "/" + filep
-		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(urllib2.urlopen(url).headers["Content-Length"]):
+		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(http.urlopen('GET', url).headers["Content-Length"]):
 			wx.CallAfter(frame.UiPrint, filep + ' already exists')
 			return False
 		else:
