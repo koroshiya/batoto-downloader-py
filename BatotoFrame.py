@@ -274,10 +274,11 @@ class BatotoFrame(wx.Frame):
 					lines.append(self.URLList.GetLineText(count))
 					count += 1
 			else:
-				count = totalLines
-				while count > 0:
+				count = totalLines - 1
+				while count >= 0:
 					lines.append(self.URLList.GetLineText(count))
 					count -= 1
+			print lines
 			self.thread = BatotoThread(0, lines, self, oldOrder)
 
 	def Cancel(self, e):
