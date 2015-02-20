@@ -76,12 +76,12 @@ class BatotoThread(Thread):
 	def ParseFirstThread(self, line):
 		self.ParseLine(line)
 		if not self.parser.cancel:
-			wx.CallAfter(self.frame.UiClear, False)
+			wx.CallAfter(self.frame.UiClear, self.order)
 
 	def ParseLastThread(self, line):
 		self.ParseLine(line)
 		if not self.parser.cancel:
-			wx.CallAfter(self.frame.UiClear, False)
+			wx.CallAfter(self.frame.UiClear, self.order)
 
 	def ParseLine(self, line):
 		if self.parser.testURL(line):
@@ -279,7 +279,7 @@ class BatotoFrame(wx.Frame):
 					lines.append(self.URLList.GetLineText(count))
 					count -= 1
 			print lines
-			self.thread = BatotoThread(0, lines, self, oldOrder)
+			self.thread = BatotoThread(0, lines, self, not oldOrder)
 
 	def Cancel(self, e):
 		if self.thread != None:
