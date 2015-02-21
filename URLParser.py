@@ -140,7 +140,7 @@ class URLParser:
 	
 	def findChapters(self, url):
 		
-		r = self.http.request('GET', nUrl)
+		r = self.http.request('GET', url)
 
 		dom = hlxml.fromstring(r.data)
 		trs = dom.xpath("//tr")
