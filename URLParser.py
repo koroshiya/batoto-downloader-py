@@ -36,6 +36,8 @@ class URLParser:
 	processes = []
 	workers = 4
 	IOError_RepeatCount = 3
+	imgServerMax = 4 #Number of image servers available
+	imgServer = 1
 	cancel = False
 	extensions = [".jpeg", ".jpg", ".png", ".gif"]
 	
@@ -55,18 +57,25 @@ class URLParser:
 			filep = URLParser.LastFileInPath(self, url)
 			#frame.SetStatusText('Downloading: ' + filep)
 			print 'Downloading: ' + filep
-			repeat = True
 			repeatCount = self.IOError_RepeatCount
-			while repeat:
-				repeat = False
+			while True:
 				try:
-					f = urllib2.urlopen(url)
+					if self.imgServer > 1: #Try another image server
+						tmpUrl = url.replace('://img', '://img'+str(self.imgServer), 1)
+					else:
+						tmpUrl = url
+					f = urllib2.urlopen(tmpUrl)
 					data = f.read()
 					with open(workdir + "/" + filep, "wb") as dlFile:
 						dlFile.write(data)
-				except IOError:
-					repeat = True
+					break
+				except:
 					repeatCount -= 1
+					if url[0:10] == "http://img":
+						if self.imgServer < self.imgServerMax:
+							self.imgServer += 1
+						else:
+							self.imgServer = 1
 					if repeatCount < 0:
 						raise
 			return "Page downloaded"
