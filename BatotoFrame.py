@@ -261,7 +261,7 @@ class BatotoFrame(wx.Frame):
 		totalLines = self.UiGetNumberOfLines()
 		if totalLines > 0:
 			line = self.URLList.GetLineText(totalLines - 1)
-			self.thread = BatotoThread(1, line, self)
+			self.thread = BatotoThread(1, line, self, False)
 
 	def ParseAll(self, e):
 		totalLines = self.UiGetNumberOfLines()
@@ -340,11 +340,11 @@ class BatotoFrame(wx.Frame):
 	def UiPrint(self, text):
 		self.statusbar.SetStatusText(text)
 	
-	def UiClear(self, last):
-		if last:
-			self.ClearLast(None)
-		else:
+	def UiClear(self, first):
+		if first:
 			self.ClearFirst(None)
+		else:
+			self.ClearLast(None)
 
 	def UiGetLine(self, lineNum):
 		return self.URLList.GetLineText(lineNum)
