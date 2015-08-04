@@ -29,6 +29,8 @@ if os.name == 'nt':
 	from threading import Thread
 else:
 	from multiprocessing import Process
+import zipfile
+import tempfile
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
@@ -43,6 +45,7 @@ class URLParser:
 	imgServer = 1
 	cancel = False
 	extensions = [".jpeg", ".jpg", ".png", ".gif"]
+	zf = None
 	
 	proxy = None #If you want to use a HTTP proxy, the format is: http://ipaddress:port
 	#eg. proxy = "http://192.168.1.112:8118"
@@ -68,8 +71,14 @@ class URLParser:
 					else:
 						tmpUrl = url
 					r = self.http.request('GET', tmpUrl)
-					with open(workdir + "/" + filep, "wb") as dlFile:
-						dlFile.write(r.data)
+					if self.zf is None:
+						with open(workdir + "/" + filep, "wb") as dlFile:
+							dlFile.write(r.data)
+					else:
+						temp = tempfile.gettempdir() + '/' + filep + '.tmp'
+						with open(temp, "wb") as dlFile:
+							dlFile.write(r.data)
+						return temp
 					break
 				except:
 					repeatCount -= 1
@@ -89,7 +98,7 @@ class URLParser:
 			if self.cancel:
 				return False
 			status_code = URLParser.ContinueDownload(self, url, workdir, frame)
-			done_queue.put("%s - %s got %s." % (current_process().name, url, status_code))
+			done_queue.put(status_code)
 		return True
 	
 	def arbitraryDownload(self, url, home, frame):
@@ -125,7 +134,7 @@ class URLParser:
 				pass
 			i += 1
 	
-	def downloadFullSeries(self, url, home, frame):
+	def downloadFullSeries(self, url, home, frame, isZip):
 
 		if url[-1] != "/":
 			url += "/"
@@ -146,7 +155,7 @@ class URLParser:
 				break
 			print "Indexing " + chapter
 			print "-----------------------"
-			self.downloadFromURL(chapter, workDir, frame)
+			self.downloadFromURL(chapter, workDir, frame, isZip)
 			
 		print "Finished downloading series"
 		print "-----------------------"
@@ -170,18 +179,24 @@ class URLParser:
 		
 		return chapters
 
-	def downloadFromURL(self, url, home, frame):
+	def downloadFromURL(self, url, home, frame, isZip):
 		if (not(url[:14] == "http://bato.to" or url[:15] == "https://bato.to" or url[:18] == "http://www.bato.to" or url[:19] == "https://www.bato.to")):
 			URLParser.arbitraryDownload(self, url, home, frame)
 			return False
 		if "bato.to/comic/" in url:
-			return URLParser.downloadFullSeries(self, url, home, frame)
+			return URLParser.downloadFullSeries(self, url, home, frame, isZip)
 		else:
 			if (not url[-1] == "/" and not url[-1] == "/1"): url += "/1"
 		
 		lastPath = URLParser.LastFolderInPath(self, url)
 		workDir = home + "/" + lastPath
-		if not os.path.isdir(workDir):
+		self.zf = None
+		if isZip:
+			filename = workDir + '.zip'
+			if os.path.exists(filename):
+				os.remove(filename)
+			self.zf = zipfile.ZipFile(filename, mode='w')
+		elif not os.path.isdir(workDir):
 			os.makedirs(workDir)
 		
 		i = 1
@@ -241,11 +256,26 @@ class URLParser:
 
 			self.done_queue.put('STOP')
 			print "\n"
-
-			for status in iter(self.done_queue.get, 'STOP'):
-				print status
+			
+			if not self.zf:
+				for status in iter(self.done_queue.get, 'STOP'):
+					print status
 		else:
 			print "No URLs found"
+			
+		if self.zf:
+			files = []
+			for f in iter(self.done_queue.get, 'STOP'): #TODO: reorder first?
+				files.append(f)
+			files.sort()
+			for f in files:
+				filename = self.LastFileInPath(f[:-4])
+				print 'zipping file :'+filename
+				self.zf.write(f, arcname=filename)
+				os.remove(f)
+			self.zf.close()
+			self.zf = None
+				
 		
 		wx.CallAfter(frame.UiPrint, 'Finished')
 		wx.CallAfter(frame.EnableCancel, True)
@@ -275,6 +305,9 @@ class URLParser:
 		return r.data if r.status == 200 else False
 	
 	def findFormat(self, url, dire):
+
+		if 'supress_webtoon' not in url:
+			url += '?supress_webtoon=t' #Doesn't affect normal chapters, but makes webtoons easier to parse
 		
 		r = self.http.request('GET', url)
 		dom = hlxml.fromstring(r.data)

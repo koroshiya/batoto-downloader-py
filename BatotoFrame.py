@@ -33,6 +33,9 @@ FILE_CLEAR_ALL = 670
 
 SETTING_ORDER = 680
 SETTING_ORDER_MENU = 681
+SETTING_ZIP = 682
+SETTING_ZIP_MENU = 683
+
 
 HOME_DIR = expanduser("~")
 if os.name == 'nt':
@@ -46,13 +49,14 @@ HEIGHT_INITIAL = 400
 
 class BatotoThread(Thread):
 	
-	def __init__(self, pType, lines, frame, order=True):
+	def __init__(self, pType, lines, frame, order=True, isZip=False):
 		Thread.__init__(self)
 		self.pType = pType
 		self.lines = lines
 		self.parser = URLParser()
 		self.frame = frame
 		self.order = order
+		self.isZip = isZip
 		self.start() #start automatically
 	
 	def run(self):
@@ -86,7 +90,7 @@ class BatotoThread(Thread):
 	def ParseLine(self, line):
 		if self.parser.testURL(line):
 			global HOME_DIR
-			self.parser.downloadFromURL(line, HOME_DIR, self.frame)
+			self.parser.downloadFromURL(line, HOME_DIR, self.frame, self.isZip)
 
 class BatotoFrame(wx.Frame):
 
@@ -152,7 +156,12 @@ class BatotoFrame(wx.Frame):
 		self.menuItemSettingsOrderNew = menuSettingsOrder.AppendRadioItem(SETTING_ORDER, 'Newest First')
 		self.menuItemSettingsOrderOld = menuSettingsOrder.AppendRadioItem(SETTING_ORDER, 'Oldest First')
 		
+		menuSettingsZip = wx.Menu()
+		self.menuItemSettingsZipFalse = menuSettingsZip.AppendRadioItem(SETTING_ZIP, 'Disabled')
+		self.menuItemSettingsZipTrue = menuSettingsZip.AppendRadioItem(SETTING_ZIP, 'Enabled')
+		
 		menuSettingsOrder.Check(self.menuItemSettingsOrderNew.GetId(), True)
+		menuSettingsZip.Check(self.menuItemSettingsZipFalse.GetId(), True)
 
 		#menuItemOpen.SetBitmap(wx.Bitmap('file.png'))
 
@@ -172,6 +181,7 @@ class BatotoFrame(wx.Frame):
 		menuClear.AppendItem(menuItemClearAll)
 		
 		menuSettings.AppendMenu(SETTING_ORDER_MENU, '&Parse All Order', menuSettingsOrder)
+		menuSettings.AppendMenu(SETTING_ZIP_MENU, '&Zip Chapters', menuSettingsZip)
 
 		menubar.Append(menuFile, '&File')
 		menubar.Append(menuParse, '&Parse')
@@ -255,19 +265,22 @@ class BatotoFrame(wx.Frame):
 		totalLines = self.UiGetNumberOfLines()
 		if (totalLines > 0):
 			line = self.URLList.GetLineText(0)
-			self.thread = BatotoThread(2, line, self)
+			isZip = self.menuItemSettingsZipTrue.IsChecked()
+			self.thread = BatotoThread(2, line, self, isZip=isZip)
 
 	def ParseLast(self, e):
 		totalLines = self.UiGetNumberOfLines()
 		if totalLines > 0:
 			line = self.URLList.GetLineText(totalLines - 1)
-			self.thread = BatotoThread(1, line, self, False)
+			isZip = self.menuItemSettingsZipTrue.IsChecked()
+			self.thread = BatotoThread(1, line, self, False, isZip=isZip)
 
 	def ParseAll(self, e):
 		totalLines = self.UiGetNumberOfLines()
 		if (totalLines > 0):
 			lines = []
 			oldOrder = self.menuItemSettingsOrderOld.IsChecked()
+			isZip = self.menuItemSettingsZipTrue.IsChecked()
 			if oldOrder:
 				count = 0
 				while count < totalLines:
@@ -279,7 +292,7 @@ class BatotoFrame(wx.Frame):
 					lines.append(self.URLList.GetLineText(count))
 					count -= 1
 			print lines
-			self.thread = BatotoThread(0, lines, self, not oldOrder)
+			self.thread = BatotoThread(0, lines, self, not oldOrder, isZip)
 
 	def Cancel(self, e):
 		if self.thread != None:
