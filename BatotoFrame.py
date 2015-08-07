@@ -39,6 +39,7 @@ SETTING_ZIP_ENABLED = 684
 SETTING_ZIP_DISABLED = 685
 SETTING_ZIP_MENU = 686
 SETTING_RSS_FRAME = 687
+SETTING_LANGUAGE_FRAME = 688
 
 HOME_DIR = expanduser("~")
 if os.name == 'nt':
@@ -54,7 +55,7 @@ HEIGHT_INITIAL = 400
 
 class BatotoThread(Thread):
 	
-	def __init__(self, pType, lines, frame, order=True, isZip=False):
+	def __init__(self, pType, lines, frame, language, order=True, isZip=False):
 		Thread.__init__(self)
 		self.pType = pType
 		self.lines = lines
@@ -62,6 +63,7 @@ class BatotoThread(Thread):
 		self.frame = frame
 		self.order = order
 		self.isZip = isZip
+		self.language = language
 		self.start() #start automatically
 	
 	def run(self):
@@ -95,7 +97,7 @@ class BatotoThread(Thread):
 	def ParseLine(self, line):
 		if self.parser.testURL(line):
 			global HOME_DIR
-			self.parser.downloadFromURL(line, HOME_DIR, self.frame, self.isZip)
+			self.parser.downloadFromURL(line, HOME_DIR, self.frame, self.isZip, self.language)
 
 class BatotoFrame(wx.Frame):
 
@@ -167,6 +169,7 @@ class BatotoFrame(wx.Frame):
 		self.menuItemSettingsZipTrue = menuSettingsZip.AppendRadioItem(SETTING_ZIP_ENABLED, 'Enabled')
 
 		menuItemRSSDialog = wx.MenuItem(menuSettings, SETTING_RSS_FRAME, '&RSS Settings')
+		menuItemLanguageDialog = wx.MenuItem(menuSettings, SETTING_LANGUAGE_FRAME, '&Language Settings')
 
 		#menuItemOpen.SetBitmap(wx.Bitmap('file.png'))
 		#RSSDialog
@@ -189,6 +192,7 @@ class BatotoFrame(wx.Frame):
 		menuSettings.AppendMenu(SETTING_ORDER_MENU, '&Parse All Order', menuSettingsOrder)
 		menuSettings.AppendMenu(SETTING_ZIP_MENU, '&Zip Chapters', menuSettingsZip)
 		menuSettings.AppendItem(menuItemRSSDialog)
+		menuSettings.AppendItem(menuItemLanguageDialog)
 
 		menubar.Append(menuFile, '&File')
 		menubar.Append(menuParse, '&Parse')
@@ -209,13 +213,14 @@ class BatotoFrame(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.ClearAll, id=FILE_CLEAR_ALL)
 
 		self.Bind(wx.EVT_MENU, self.showRSSDialog, id=SETTING_RSS_FRAME)
+		self.Bind(wx.EVT_MENU, self.showLanguageDialog, id=SETTING_LANGUAGE_FRAME)
 
 		self.statusbar = self.CreateStatusBar()
 		self.SetMenuBar(menubar)
 
 		###Load settings###
 		
-		if self.config.getboolean(SECTION, 'parseOrder') == True:
+		if self.config.getboolean(SECTION, 'orderOldFirst') == True:
 			menuSettingsOrder.Check(SETTING_ORDER_OLD, True)
 		else:
 			menuSettingsOrder.Check(SETTING_ORDER_NEW, True)
@@ -290,14 +295,16 @@ class BatotoFrame(wx.Frame):
 		if (totalLines > 0):
 			line = self.URLList.GetLineText(0)
 			isZip = self.menuItemSettingsZipTrue.IsChecked()
-			self.thread = BatotoThread(2, line, self, isZip=isZip)
+			language = self.config.get(SECTION, 'language')
+			self.thread = BatotoThread(2, line, self, language, isZip=isZip)
 
 	def ParseLast(self, e):
 		totalLines = self.UiGetNumberOfLines()
 		if totalLines > 0:
 			line = self.URLList.GetLineText(totalLines - 1)
 			isZip = self.menuItemSettingsZipTrue.IsChecked()
-			self.thread = BatotoThread(1, line, self, False, isZip=isZip)
+			language = self.config.get(SECTION, 'language')
+			self.thread = BatotoThread(1, line, self, language, False, isZip=isZip)
 
 	def ParseAll(self, e):
 		totalLines = self.UiGetNumberOfLines()
@@ -305,6 +312,8 @@ class BatotoFrame(wx.Frame):
 			lines = []
 			oldOrder = self.menuItemSettingsOrderOld.IsChecked()
 			isZip = self.menuItemSettingsZipTrue.IsChecked()
+			language = self.config.get(SECTION, 'language')
+
 			if oldOrder:
 				count = 0
 				while count < totalLines:
@@ -315,8 +324,8 @@ class BatotoFrame(wx.Frame):
 				while count >= 0:
 					lines.append(self.URLList.GetLineText(count))
 					count -= 1
-			print lines
-			self.thread = BatotoThread(0, lines, self, not oldOrder, isZip)
+			
+			self.thread = BatotoThread(0, lines, self, language, not oldOrder, isZip)
 
 	def Cancel(self, e):
 		if self.thread != None:
@@ -360,11 +369,12 @@ class BatotoFrame(wx.Frame):
 
 	def LoadSettingsFromFile(self):
 		self.config = ConfigParser.RawConfigParser({
-			'parseOrder':False, #If False, Newest first
-			'zip':False,
+			'orderOldFirst':'False',
+			'zip':'False',
 			'urls':'',
 			'rss':'',
-			'rssDate':''
+			'rssDate':'',
+			'language':'English'
 		})
 
 		if isfile(SETTINGS_FILE):
@@ -375,9 +385,12 @@ class BatotoFrame(wx.Frame):
 	def SaveConfig(self):
 
 		arr = self.UiGetList()
+		oldFirst = str(self.menuItemSettingsOrderOld.IsChecked())
+		zipEnabled = str(self.menuItemSettingsZipTrue.IsChecked())
+
 		self.config.set(SECTION, 'urls', arr)
-		self.config.set(SECTION, 'parseOrder', self.menuItemSettingsOrderOld.IsChecked())
-		self.config.set(SECTION, 'zip', self.menuItemSettingsZipTrue.IsChecked())
+		self.config.set(SECTION, 'orderOldFirst', oldFirst)
+		self.config.set(SECTION, 'zip', zipEnabled)
 
 		with open(SETTINGS_FILE, 'wb') as configfile:
 			self.config.write(configfile)
@@ -447,6 +460,19 @@ class BatotoFrame(wx.Frame):
 		
 		if result is not False:
 			self.config.set(SECTION, 'rss', result)
+
+	def showLanguageDialog(self, e):
+		dlg = wx.TextEntryDialog(self,
+			'Enter language for Batoto full-series downloads.\n'+
+			'The language should match one of those in the "Language Settings" panel on Batoto\'s home page.\n'+
+			'This is case-sensitive. eg. "French" will work, "french" will not.',
+			defaultValue=self.config.get(SECTION, 'language'))
+		dlg.ShowModal()
+		result = dlg.GetValue()
+		dlg.Destroy()
+		
+		if result is not False:
+			self.config.set(SECTION, 'language', result)
 
 	def CheckForUpdates(self, e):
 		url = self.config.get(SECTION, 'rss')

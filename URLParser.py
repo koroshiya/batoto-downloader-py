@@ -136,7 +136,7 @@ class URLParser:
 				pass
 			i += 1
 	
-	def downloadFullSeries(self, url, home, frame, isZip):
+	def downloadFullSeries(self, url, home, frame, isZip, language):
 
 		if url[-1] != "/":
 			url += "/"
@@ -149,7 +149,7 @@ class URLParser:
 		if not os.path.isdir(workDir):
 			os.makedirs(workDir)
 		
-		chapters = list(set(self.findChapters(url)))
+		chapters = list(set(self.findChapters(url, language)))
 		chapters.sort(key=LastFolderInPath)
 		
 		for chapter in chapters:
@@ -157,19 +157,19 @@ class URLParser:
 				break
 			print "Indexing " + chapter
 			print "-----------------------"
-			self.downloadFromURL(chapter, workDir, frame, isZip)
+			self.downloadFromURL(chapter, workDir, frame, isZip, language)
 			
 		print "Finished downloading series"
 		print "-----------------------"
 		
 		return True
 	
-	def findChapters(self, url):
+	def findChapters(self, url, language):
 		
 		r = self.http.request('GET', url)
 
 		dom = hlxml.fromstring(r.data)
-		aList = dom.xpath('//tr[@class="row lang_English chapter_row"]//a')
+		aList = dom.xpath('//tr[@class="row lang_'+language+' chapter_row"]//a')
 		chapters = []
 
 		for a in aList:
@@ -181,12 +181,12 @@ class URLParser:
 		
 		return chapters
 
-	def downloadFromURL(self, url, home, frame, isZip):
+	def downloadFromURL(self, url, home, frame, isZip, language):
 		if (not(url[:14] == "http://bato.to" or url[:15] == "https://bato.to" or url[:18] == "http://www.bato.to" or url[:19] == "https://www.bato.to")):
 			URLParser.arbitraryDownload(self, url, home, frame)
 			return False
 		if "bato.to/comic/" in url:
-			return URLParser.downloadFullSeries(self, url, home, frame, isZip)
+			return URLParser.downloadFullSeries(self, url, home, frame, isZip, language)
 		else:
 			if (not url[-1] == "/" and not url[-1] == "/1"): url += "/1"
 		
