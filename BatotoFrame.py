@@ -17,6 +17,7 @@ from URLParser import URLParser
 import os
 from os.path import expanduser, isfile, join
 from threading import Thread
+import ConfigParser
 
 FILE_IMPORT = 650
 FILE_EXPORT = 651
@@ -31,16 +32,20 @@ FILE_CLEAR_FIRST = 668
 FILE_CLEAR_LAST = 669
 FILE_CLEAR_ALL = 670
 
-SETTING_ORDER = 680
-SETTING_ORDER_MENU = 681
-SETTING_ZIP = 682
-SETTING_ZIP_MENU = 683
+SETTING_ORDER_NEW = 680
+SETTING_ORDER_OLD = 681
+SETTING_ORDER_MENU = 682
+SETTING_ZIP_ENABLED = 684
+SETTING_ZIP_DISABLED = 685
+SETTING_ZIP_MENU = 686
 
 
 HOME_DIR = expanduser("~")
 if os.name == 'nt':
 	HOME_DIR = join(HOME_DIR, "Documents")
 SAVE_FILE = join(HOME_DIR, "batotolist.txt")
+SETTINGS_FILE = join(HOME_DIR, "BatotoConfig.cfg")
+SECTION = 'Settings'
 
 WIDTH_MIN = 500
 WIDTH_INITIAL = 500
@@ -107,6 +112,7 @@ class BatotoFrame(wx.Frame):
 
 	def InitUI(self):
 
+		self.LoadSettingsFromFile()
 		self.ConstructMenu()
 
 		panel = wx.Panel(self)
@@ -153,15 +159,12 @@ class BatotoFrame(wx.Frame):
 		menuItemClearAll = wx.MenuItem(menuClear, FILE_CLEAR_ALL, 'Clear &All')
 		
 		menuSettingsOrder = wx.Menu()
-		self.menuItemSettingsOrderNew = menuSettingsOrder.AppendRadioItem(SETTING_ORDER, 'Newest First')
-		self.menuItemSettingsOrderOld = menuSettingsOrder.AppendRadioItem(SETTING_ORDER, 'Oldest First')
+		self.menuItemSettingsOrderNew = menuSettingsOrder.AppendRadioItem(SETTING_ORDER_NEW, 'Newest First')
+		self.menuItemSettingsOrderOld = menuSettingsOrder.AppendRadioItem(SETTING_ORDER_OLD, 'Oldest First')
 		
 		menuSettingsZip = wx.Menu()
-		self.menuItemSettingsZipFalse = menuSettingsZip.AppendRadioItem(SETTING_ZIP, 'Disabled')
-		self.menuItemSettingsZipTrue = menuSettingsZip.AppendRadioItem(SETTING_ZIP, 'Enabled')
-		
-		menuSettingsOrder.Check(self.menuItemSettingsOrderNew.GetId(), True)
-		menuSettingsZip.Check(self.menuItemSettingsZipFalse.GetId(), True)
+		self.menuItemSettingsZipFalse = menuSettingsZip.AppendRadioItem(SETTING_ZIP_DISABLED, 'Disabled')
+		self.menuItemSettingsZipTrue = menuSettingsZip.AppendRadioItem(SETTING_ZIP_ENABLED, 'Enabled')
 
 		#menuItemOpen.SetBitmap(wx.Bitmap('file.png'))
 
@@ -204,6 +207,18 @@ class BatotoFrame(wx.Frame):
 		self.statusbar = self.CreateStatusBar()
 		self.SetMenuBar(menubar)
 
+		#Load settings
+		print self.config.getboolean(SECTION, 'parseOrder')
+		if self.config.getboolean(SECTION, 'parseOrder') == True:
+			menuSettingsOrder.Check(SETTING_ORDER_OLD, True)
+		else:
+			menuSettingsOrder.Check(SETTING_ORDER_NEW, True)
+
+		if self.config.getboolean(SECTION, 'zip') == True:
+			menuSettingsZip.Check(SETTING_ZIP_ENABLED, True)
+		else:
+			menuSettingsZip.Check(SETTING_ZIP_DISABLED, True)
+
 	def ConstructButtons(self, panel):
 		btnBox = wx.BoxSizer(wx.VERTICAL)
 		self.btn1 = wx.Button(panel, label='Add URL')
@@ -244,9 +259,10 @@ class BatotoFrame(wx.Frame):
 			wx.MessageDialog(None, 'Error saving file', 'Error', wx.OK | wx.ICON_ERROR).ShowModal()
 
 	def Save(self, e):
-		self.URLList.SaveFile(SAVE_FILE)
+		self.SaveConfig()
 
 	def Exit(self, e):
+		self.SaveConfig()
 		wx.Exit()
 
 	def AddURL(self, e):
@@ -328,6 +344,33 @@ class BatotoFrame(wx.Frame):
 	def LoadListFromFile(self):
 		if isfile(SAVE_FILE):
 			self.URLList.LoadFile(SAVE_FILE)
+			os.remove(SAVE_FILE)
+
+		url = self.config.get(SECTION, 'urls')
+		if len(url) > 0:
+			self.DirectlyAddURL(url)
+
+	def LoadSettingsFromFile(self):
+		self.config = ConfigParser.RawConfigParser({
+			'parseOrder':False, #If False, Newest first
+			'zip':False,
+			'urls':''
+		})
+
+		if isfile(SETTINGS_FILE):
+			self.config.read(SETTINGS_FILE)
+		else:
+			self.config.add_section(SECTION)
+
+	def SaveConfig(self):
+
+		arr = self.UiGetList()
+		self.config.set(SECTION, 'urls', arr)
+		self.config.set(SECTION, 'parseOrder', self.menuItemSettingsOrderOld.IsChecked())
+		self.config.set(SECTION, 'zip', self.menuItemSettingsZipTrue.IsChecked())
+
+		with open(SETTINGS_FILE, 'wb') as configfile:
+			self.config.write(configfile)
 
 	def SetLocked(self, lock):
 		if lock:
@@ -367,3 +410,13 @@ class BatotoFrame(wx.Frame):
 			return 0
 		else:
 			return self.URLList.GetNumberOfLines()
+
+	def UiGetList(self):
+		arr = ''
+		if self.URLList.GetValue() != '':
+			n = self.URLList.GetNumberOfLines()
+			for i in xrange(0, n):
+				if i > 0:
+					arr += '\n'
+				arr += self.UiGetLine(i)
+		return arr
