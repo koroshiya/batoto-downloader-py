@@ -38,7 +38,7 @@ SETTING_ORDER_MENU = 682
 SETTING_ZIP_ENABLED = 684
 SETTING_ZIP_DISABLED = 685
 SETTING_ZIP_MENU = 686
-
+SETTING_RSS_FRAME = 687
 
 HOME_DIR = expanduser("~")
 if os.name == 'nt':
@@ -166,7 +166,10 @@ class BatotoFrame(wx.Frame):
 		self.menuItemSettingsZipFalse = menuSettingsZip.AppendRadioItem(SETTING_ZIP_DISABLED, 'Disabled')
 		self.menuItemSettingsZipTrue = menuSettingsZip.AppendRadioItem(SETTING_ZIP_ENABLED, 'Enabled')
 
+		menuItemRSSDialog = wx.MenuItem(menuSettings, SETTING_RSS_FRAME, '&RSS Settings')
+
 		#menuItemOpen.SetBitmap(wx.Bitmap('file.png'))
+		#RSSDialog
 
 		menuFile.AppendItem(menuItemImport)
 		menuFile.AppendItem(menuItemExport)
@@ -185,6 +188,7 @@ class BatotoFrame(wx.Frame):
 		
 		menuSettings.AppendMenu(SETTING_ORDER_MENU, '&Parse All Order', menuSettingsOrder)
 		menuSettings.AppendMenu(SETTING_ZIP_MENU, '&Zip Chapters', menuSettingsZip)
+		menuSettings.AppendItem(menuItemRSSDialog)
 
 		menubar.Append(menuFile, '&File')
 		menubar.Append(menuParse, '&Parse')
@@ -204,11 +208,13 @@ class BatotoFrame(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.ClearLast, id=FILE_CLEAR_LAST)
 		self.Bind(wx.EVT_MENU, self.ClearAll, id=FILE_CLEAR_ALL)
 
+		self.Bind(wx.EVT_MENU, self.showRSSDialog, id=SETTING_RSS_FRAME)
+
 		self.statusbar = self.CreateStatusBar()
 		self.SetMenuBar(menubar)
 
-		#Load settings
-		print self.config.getboolean(SECTION, 'parseOrder')
+		###Load settings###
+		
 		if self.config.getboolean(SECTION, 'parseOrder') == True:
 			menuSettingsOrder.Check(SETTING_ORDER_OLD, True)
 		else:
@@ -229,6 +235,7 @@ class BatotoFrame(wx.Frame):
 		self.btn6 = wx.Button(panel, label='Clear Last')
 		self.btn7 = wx.Button(panel, label='Clear All')
 		self.btn8 = wx.Button(panel, label='Cancel')
+		self.btn9 = wx.Button(panel, label='Check RSS Feed')
 		self.btn1.Bind(wx.EVT_BUTTON, self.AddURL)
 		self.btn2.Bind(wx.EVT_BUTTON, self.ParseFirst)
 		self.btn3.Bind(wx.EVT_BUTTON, self.ParseLast)
@@ -238,7 +245,8 @@ class BatotoFrame(wx.Frame):
 		self.btn7.Bind(wx.EVT_BUTTON, self.ClearAll)
 		self.btn8.Bind(wx.EVT_BUTTON, self.Cancel)
 		self.btn8.Disable()
-		btnBox.AddMany([(self.btn1, 1, wx.EXPAND), (self.btn2, 1, wx.EXPAND), (self.btn3, 1, wx.EXPAND), (self.btn4, 1, wx.EXPAND), (self.btn5, 1, wx.EXPAND), (self.btn6, 1, wx.EXPAND), (self.btn7, 1, wx.EXPAND), (self.btn8, 1, wx.EXPAND)])
+		self.btn9.Bind(wx.EVT_BUTTON, self.CheckForUpdates)
+		btnBox.AddMany([(self.btn1, 1, wx.EXPAND), (self.btn2, 1, wx.EXPAND), (self.btn3, 1, wx.EXPAND), (self.btn4, 1, wx.EXPAND), (self.btn5, 1, wx.EXPAND), (self.btn6, 1, wx.EXPAND), (self.btn7, 1, wx.EXPAND), (self.btn8, 1, wx.EXPAND), (self.btn9, 1, wx.EXPAND)])
 		return btnBox
 
 	def Import(self, e):
@@ -354,7 +362,9 @@ class BatotoFrame(wx.Frame):
 		self.config = ConfigParser.RawConfigParser({
 			'parseOrder':False, #If False, Newest first
 			'zip':False,
-			'urls':''
+			'urls':'',
+			'rss':'',
+			'rssDate':''
 		})
 
 		if isfile(SETTINGS_FILE):
@@ -382,6 +392,7 @@ class BatotoFrame(wx.Frame):
 			self.btn6.Disable()
 			self.btn7.Disable()
 			self.btn8.Enable()
+			self.btn9.Disable()
 		else:
 			self.btn1.Enable()
 			self.btn2.Enable()
@@ -391,6 +402,7 @@ class BatotoFrame(wx.Frame):
 			self.btn6.Enable()
 			self.btn7.Enable()
 			self.btn8.Disable()
+			self.btn9.Enable()
 			self.thread.parser.Cancel(False)
 	
 	def UiPrint(self, text):
@@ -420,3 +432,46 @@ class BatotoFrame(wx.Frame):
 					arr += '\n'
 				arr += self.UiGetLine(i)
 		return arr
+
+	def showRSSDialog(self, e):
+		dlg = wx.TextEntryDialog(self,
+			'Enter Batoto RSS feed URL.\n'+
+			'You can get this URL by logging onto Batoto and going to: https://bato.to/myfollows\n'+
+			'Copy the link address of the RSS feed and paste it here.\n'+
+			'It will look like: https://bato.to/myfollows_rss?secret=randomText&l=English\n'+
+			'where randomText is a mix of numbers and letters, and English is your desired language',
+			defaultValue=self.config.get(SECTION, 'rss'))
+		dlg.ShowModal()
+		result = dlg.GetValue()
+		dlg.Destroy()
+		
+		if result is not False:
+			self.config.set(SECTION, 'rss', result)
+
+	def CheckForUpdates(self, e):
+		url = self.config.get(SECTION, 'rss')
+		if url[0:30] == 'https://bato.to/myfollows_rss?' or url[0:29] == 'http://bato.to/myfollows_rss?':
+			date = self.config.get(SECTION, 'rssDate')
+
+			parser = URLParser()
+			busy = wx.BusyInfo("Checking for updates...")
+			args = parser.getUpdates(url, date)
+			del busy
+
+			if args[0]:
+				self.config.set(SECTION, 'rssDate', args[1])
+				if len(args[2]) > 0:
+					self.DirectlyAddURL(args[2])
+			else:
+				self.ShowMessage(args[1])
+		else:
+			self.ShowMessage(
+				'Invalid or missing rss feed.\n'+
+				'Go to "Settings > RSS Settings" for instructions\n'+
+				'on how to find and enter an RSS feed with your\n'+
+				'followed series on Batoto.',
+				'Invalid RSS'
+			)
+
+	def ShowMessage(self, msg, title):
+		wx.MessageBox(msg, title, wx.OK | wx.ICON_INFORMATION)

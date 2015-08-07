@@ -16,6 +16,7 @@ except ImportError:
 
 try:
 	from lxml import html as hlxml
+	from lxml import etree
 except ImportError:
 	print "You do not appear to have lxml installed.\n"
 	print "Without lxml, this program cannot run.\n"
@@ -31,6 +32,7 @@ else:
 	from multiprocessing import Process
 import zipfile
 import tempfile
+from time import strptime
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
@@ -364,6 +366,38 @@ class URLParser:
 		strBuffer += i
 		
 		return strBuffer
+
+	def getUpdates(self, url, lastParsed):
+
+		req = self.http.request_encode_body('GET', url)
+		
+		if req.data[0:5] == 'ERROR':
+			return [False, 'Invalid RSS feed']
+
+		xml = etree.fromstring(req.data)
+		items = xml.xpath('//item')
+		newItems = ''
+
+		newDateStr = lastParsed
+		if len(lastParsed) > 0:
+			newDate = lastParsed = strptime(lastParsed, "%a, %d %b %Y %H:%M:%S +0000")
+		else:
+			newDate = False
+		
+		if len(items) > 0:
+			for item in items:
+				dateStr = item.xpath('.//pubDate')[0].text
+				date = strptime(dateStr, "%a, %d %b %Y %H:%M:%S +0000")
+				if len(lastParsed) == 0 or date > lastParsed:
+					if len(newItems) > 0:
+						newItems += '\n'
+					newItems += item.xpath('.//link')[0].text
+					if not newDate or date > newDate:
+						newDate = date
+						newDateStr = dateStr
+		
+		return [True, newDateStr, newItems]
+
 
 def LastFolderInPath(path):
 	start = path.rindex('/')
