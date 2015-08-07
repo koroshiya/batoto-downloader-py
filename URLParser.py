@@ -38,24 +38,25 @@ reload(sys)
 sys.setdefaultencoding("utf-8")
 
 class URLParser:
-	work_queue = Queue()
-	done_queue = Queue()
-	processes = []
-	workers = 4
-	IOError_RepeatCount = 3
-	imgServerMax = 4 #Number of image servers available
-	imgServer = 1
-	cancel = False
-	extensions = [".jpeg", ".jpg", ".png", ".gif"]
-	zf = None
 	
-	proxy = None #If you want to use a HTTP proxy, the format is: http://ipaddress:port
-	#eg. proxy = "http://192.168.1.112:8118"
-	#This should be saved to & loaded from a config file in the future.
-	if proxy != None:
-		http = urllib3.ProxyManager(proxy)
-	else:
-		http = urllib3.PoolManager()
+	def __init__(self, proxy):
+
+		self.work_queue = Queue()
+		self.done_queue = Queue()
+		self.processes = []
+		self.workers = 4
+		self.IOError_RepeatCount = 3
+		self.imgServerMax = 4 #Number of image servers available
+		self.imgServer = 1
+		self.cancel = False
+		self.extensions = [".jpeg", ".jpg", ".png", ".gif"]
+		self.zf = None
+
+		if len(proxy) > 0:
+			self.http = urllib3.ProxyManager(proxy)
+		else:
+			self.http = urllib3.PoolManager()
+
 
 	def Cancel(self, state):
 		self.cancel = True

@@ -40,6 +40,7 @@ SETTING_ZIP_DISABLED = 685
 SETTING_ZIP_MENU = 686
 SETTING_RSS_FRAME = 687
 SETTING_LANGUAGE_FRAME = 688
+SETTING_PROXY = 689
 
 HOME_DIR = expanduser("~")
 if os.name == 'nt':
@@ -55,15 +56,15 @@ HEIGHT_INITIAL = 400
 
 class BatotoThread(Thread):
 	
-	def __init__(self, pType, lines, frame, language, order=True, isZip=False):
+	def __init__(self, pType, lines, frame, order=True):
 		Thread.__init__(self)
 		self.pType = pType
 		self.lines = lines
-		self.parser = URLParser()
+		self.parser = URLParser(frame.config.get(SECTION, 'proxy'))
 		self.frame = frame
 		self.order = order
-		self.isZip = isZip
-		self.language = language
+		self.isZip = frame.menuItemSettingsZipTrue.IsChecked()
+		self.language = frame.config.get(SECTION, 'language')
 		self.start() #start automatically
 	
 	def run(self):
@@ -170,6 +171,7 @@ class BatotoFrame(wx.Frame):
 
 		menuItemRSSDialog = wx.MenuItem(menuSettings, SETTING_RSS_FRAME, '&RSS Settings')
 		menuItemLanguageDialog = wx.MenuItem(menuSettings, SETTING_LANGUAGE_FRAME, '&Language Settings')
+		menuItemProxyDialog = wx.MenuItem(menuSettings, SETTING_PROXY, '&HTTP Proxy')
 
 		#menuItemOpen.SetBitmap(wx.Bitmap('file.png'))
 		#RSSDialog
@@ -193,6 +195,7 @@ class BatotoFrame(wx.Frame):
 		menuSettings.AppendMenu(SETTING_ZIP_MENU, '&Zip Chapters', menuSettingsZip)
 		menuSettings.AppendItem(menuItemRSSDialog)
 		menuSettings.AppendItem(menuItemLanguageDialog)
+		menuSettings.AppendItem(menuItemProxyDialog)
 
 		menubar.Append(menuFile, '&File')
 		menubar.Append(menuParse, '&Parse')
@@ -214,6 +217,7 @@ class BatotoFrame(wx.Frame):
 
 		self.Bind(wx.EVT_MENU, self.showRSSDialog, id=SETTING_RSS_FRAME)
 		self.Bind(wx.EVT_MENU, self.showLanguageDialog, id=SETTING_LANGUAGE_FRAME)
+		self.Bind(wx.EVT_MENU, self.showProxyDialog, id=SETTING_PROXY)
 
 		self.statusbar = self.CreateStatusBar()
 		self.SetMenuBar(menubar)
@@ -294,24 +298,21 @@ class BatotoFrame(wx.Frame):
 		totalLines = self.UiGetNumberOfLines()
 		if (totalLines > 0):
 			line = self.URLList.GetLineText(0)
-			isZip = self.menuItemSettingsZipTrue.IsChecked()
 			language = self.config.get(SECTION, 'language')
-			self.thread = BatotoThread(2, line, self, language, isZip=isZip)
+			self.thread = BatotoThread(2, line, self)
 
 	def ParseLast(self, e):
 		totalLines = self.UiGetNumberOfLines()
 		if totalLines > 0:
 			line = self.URLList.GetLineText(totalLines - 1)
-			isZip = self.menuItemSettingsZipTrue.IsChecked()
 			language = self.config.get(SECTION, 'language')
-			self.thread = BatotoThread(1, line, self, language, False, isZip=isZip)
+			self.thread = BatotoThread(1, line, self, False)
 
 	def ParseAll(self, e):
 		totalLines = self.UiGetNumberOfLines()
 		if (totalLines > 0):
 			lines = []
 			oldOrder = self.menuItemSettingsOrderOld.IsChecked()
-			isZip = self.menuItemSettingsZipTrue.IsChecked()
 			language = self.config.get(SECTION, 'language')
 
 			if oldOrder:
@@ -325,7 +326,7 @@ class BatotoFrame(wx.Frame):
 					lines.append(self.URLList.GetLineText(count))
 					count -= 1
 			
-			self.thread = BatotoThread(0, lines, self, language, not oldOrder, isZip)
+			self.thread = BatotoThread(0, lines, self, not oldOrder)
 
 	def Cancel(self, e):
 		if self.thread != None:
@@ -374,7 +375,8 @@ class BatotoFrame(wx.Frame):
 			'urls':'',
 			'rss':'',
 			'rssDate':'',
-			'language':'English'
+			'language':'English',
+			'proxy':''
 		})
 
 		if isfile(SETTINGS_FILE):
@@ -474,12 +476,25 @@ class BatotoFrame(wx.Frame):
 		if result is not False:
 			self.config.set(SECTION, 'language', result)
 
+	def showProxyDialog(self, e):
+		dlg = wx.TextEntryDialog(self,
+			'HTTP proxy for all downloads.\n'+
+			'Proxy format: http://ip:port\n'+
+			'eg. http://192.168.1.112:8118',
+			defaultValue=self.config.get(SECTION, 'proxy'))
+		dlg.ShowModal()
+		result = dlg.GetValue()
+		dlg.Destroy()
+		
+		if result is not False:
+			self.config.set(SECTION, 'proxy', result)
+
 	def CheckForUpdates(self, e):
 		url = self.config.get(SECTION, 'rss')
 		if url[0:30] == 'https://bato.to/myfollows_rss?' or url[0:29] == 'http://bato.to/myfollows_rss?':
 			date = self.config.get(SECTION, 'rssDate')
 
-			parser = URLParser()
+			parser = URLParser(self.config.get(SECTION, 'proxy'))
 			busy = wx.BusyInfo("Checking for updates...")
 			args = parser.getUpdates(url, date)
 			del busy
