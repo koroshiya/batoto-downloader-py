@@ -290,9 +290,10 @@ class BatotoFrame(wx.Frame):
 			self.Save(e)
 
 	def DirectlyAddURL(self, line):
-		if (len(self.URLList.GetLineText(0)) > 0):
-			self.URLList.AppendText("\n")
-		self.URLList.AppendText(line)
+		if (len(line) > 6): #At least the length of http://
+			if (len(self.URLList.GetLineText(0)) > 0):
+				self.URLList.AppendText("\n")
+			self.URLList.AppendText(line)
 	
 	def ParseFirst(self, e):
 		totalLines = self.UiGetNumberOfLines()
