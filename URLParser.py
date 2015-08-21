@@ -183,10 +183,12 @@ class URLParser:
 		return chapters
 
 	def downloadFromURL(self, url, home, frame, isZip, language):
-		if (not(url[:14] == "http://bato.to" or url[:15] == "https://bato.to" or url[:18] == "http://www.bato.to" or url[:19] == "https://www.bato.to")):
+		if len(url) < 7:
+			return False
+		elif (len(url) < 19 or not(url[:14] == "http://bato.to" or url[:15] == "https://bato.to" or url[:18] == "http://www.bato.to" or url[:19] == "https://www.bato.to")):
 			URLParser.arbitraryDownload(self, url, home, frame)
 			return False
-		if "bato.to/comic/" in url:
+		elif "bato.to/comic/" in url:
 			return URLParser.downloadFullSeries(self, url, home, frame, isZip, language)
 		else:
 			if (not url[-1] == "/" and not url[-1] == "/1"): url += "/1"
