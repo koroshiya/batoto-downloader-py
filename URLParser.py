@@ -45,7 +45,7 @@ class URLParser:
 		self.done_queue = Queue()
 		self.processes = []
 		self.workers = 4
-		self.IOError_RepeatCount = 3
+		self.IOError_RepeatCount = 4
 		self.imgServerMax = 4 #Number of image servers available
 		self.imgServer = 1
 		self.cancel = False
@@ -69,7 +69,7 @@ class URLParser:
 			repeatCount = self.IOError_RepeatCount
 			while True:
 				try:
-					if self.imgServer > 1: #Try another image server
+					if self.imgServer > 1 and url[0:10] == "http://img": #Try another image server
 						tmpUrl = url.replace('://img', '://img'+str(self.imgServer), 1)
 					else:
 						tmpUrl = url
@@ -90,6 +90,10 @@ class URLParser:
 							self.imgServer += 1
 						else:
 							self.imgServer = 1
+					elif url[0:10] == "http://arc":
+						raise
+					elif url[0:10] == "http://cdn":
+						url = "http://img" + url[10:] #CDN failed; go back to img server
 					if repeatCount < 0:
 						raise
 			return "Page downloaded"
@@ -213,7 +217,7 @@ class URLParser:
 				arg = URLParser.AbsoluteFolder(self, url) + str(i)
 				wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(i))
 				print 'Indexing page ' + str(i)
-				regex = URLParser.findFormat(self, arg, False)
+				regex = URLParser.findFormat(self, arg)
 				if regex:
 					extension = os.path.splitext(regex)[1].lower()
 					if extension in self.extensions:
@@ -309,7 +313,7 @@ class URLParser:
 		r = self.http.request('GET', url)
 		return r.data if r.status == 200 else False
 	
-	def findFormat(self, url, dire):
+	def findFormat(self, url):
 
 		if 'supress_webtoon' not in url:
 			url += '?supress_webtoon=t' #Doesn't affect normal chapters, but makes webtoons easier to parse
@@ -320,8 +324,9 @@ class URLParser:
 		src = img.get('src')
 
 		if src is not None:
-			inp = "" if src[0:10] == "http://arc" else "img"
-			return self.AbsoluteFolder(src) + inp if dire else src
+			if src[0:10] == "http://img":
+				src = "http://cdn" + src[10:] #Try CDN first
+			return src
 		
 		return False
 	
