@@ -196,6 +196,11 @@ class URLParser:
 			return URLParser.downloadFullSeries(self, url, home, frame, isZip, language)
 		else:
 			if (not url[-1] == "/" and not url[-1] == "/1"): url += "/1"
+
+		if '_by_' not in url:
+			groupName = self.findGroupName(url)
+			if groupName:
+				url = url[:url.rindex('/')] + '_by_'+groupName + '/1'
 		
 		lastPath = URLParser.LastFolderInPath(self, url)
 		workDir = home + "/" + lastPath
@@ -328,6 +333,20 @@ class URLParser:
 				src = "http://cdn" + src[10:] #Try CDN first
 			return src
 		
+		return False
+	
+	def findGroupName(self, url):
+		
+		r = self.http.request('GET', url)
+		dom = hlxml.fromstring(r.data)
+		sel = dom.xpath(".//*[@name='group_select']")
+		if len(sel) > 0:
+			val = sel[0].value
+			val = val[:val.rindex('/')] #Strip language
+			val = val[:val.rindex('/')] #Strip chapter id
+			val = val[val.rindex('/')+1:] #Get group name
+			val = val[:val.rindex('-')] #Strip group id
+			return val
 		return False
 	
 	def Download(self, url, workDir, frame):
