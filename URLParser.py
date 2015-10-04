@@ -274,28 +274,28 @@ class URLParser:
 			if not self.zf:
 				for status in iter(self.done_queue.get, 'STOP'):
 					print status
+			
+			if self.zf:
+				files = []
+				for f in iter(self.done_queue.get, 'STOP'): #TODO: reorder first?
+					files.append(f)
+				files.sort()
+				for f in files:
+					filename = self.LastFileInPath(f[:-4])
+					print 'zipping file :'+filename
+					self.zf.write(f, arcname=filename)
+					os.remove(f)
+				self.zf.close()
+				self.zf = None
+			
+			print "\n"
+			print "Finished downloading chapter"
+			print "\n"
 		else:
 			print "No URLs found"
 			
-		if self.zf:
-			files = []
-			for f in iter(self.done_queue.get, 'STOP'): #TODO: reorder first?
-				files.append(f)
-			files.sort()
-			for f in files:
-				filename = self.LastFileInPath(f[:-4])
-				print 'zipping file :'+filename
-				self.zf.write(f, arcname=filename)
-				os.remove(f)
-			self.zf.close()
-			self.zf = None
-				
-		
 		wx.CallAfter(frame.UiPrint, 'Finished')
 		wx.CallAfter(frame.EnableCancel, True)
-		print "\n"
-		print "Finished downloading chapter"
-		print "\n"
 		
 		return not self.cancel and i != 1
 	
@@ -342,11 +342,12 @@ class URLParser:
 		sel = dom.xpath(".//*[@name='group_select']")
 		if len(sel) > 0:
 			val = sel[0].value
-			val = val[:val.rindex('/')] #Strip language
-			val = val[:val.rindex('/')] #Strip chapter id
-			val = val[val.rindex('/')+1:] #Get group name
-			val = val[:val.rindex('-')] #Strip group id
-			return val
+			if val is not None:
+				val = val[:val.rindex('/')] #Strip language
+				val = val[:val.rindex('/')] #Strip chapter id
+				val = val[val.rindex('/')+1:] #Get group name
+				val = val[:val.rindex('-')] #Strip group id
+				return val
 		return False
 	
 	def Download(self, url, workDir, frame):
