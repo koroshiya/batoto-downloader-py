@@ -1,29 +1,17 @@
 #!/usr/bin/python2.7 -tt
 
-from __future__ import unicode_literals
+#from __future__ import unicode_literals
 import sys
-if sys.version_info < (2, 7):
-	print "Must use python 2.7 or greater\n"
-	sys.exit()
+import wx
+from lxml import html as hlxml
+from lxml import etree
 
-try:
-	import wx
-except ImportError:
-	print "You do not appear to have wxpython installed.\n"
-	print "Without wxpython, this program cannot run.\n"
-	print "You can download wxpython at: http://www.wxpython.org/download.php#stable \n"
-	sys.exit()
-
-try:
-	from lxml import html as hlxml
-	from lxml import etree
-except ImportError:
-	print "You do not appear to have lxml installed.\n"
-	print "Without lxml, this program cannot run.\n"
-	print "You can download lxml at: http://lxml.de/installation.html \n"
-	sys.exit()
-
+import certifi
 import urllib3
+import pyOpenSSL
+import urllib3.contrib.pyopenssl
+urllib3.contrib.pyopenssl.inject_into_urllib3()
+
 import os
 from multiprocessing import Queue, current_process
 if os.name == 'nt':
@@ -32,6 +20,7 @@ else:
 	from multiprocessing import Process
 import zipfile
 import tempfile
+import json
 from time import strptime
 
 reload(sys)
@@ -52,10 +41,19 @@ class URLParser:
 		self.extensions = [".jpeg", ".jpg", ".png", ".gif"]
 		self.zf = None
 
+		print certifi.where()
+
 		if len(proxy) > 0:
-			self.http = urllib3.ProxyManager(proxy)
+			self.http = urllib3.ProxyManager(
+				proxy,
+				#cert_reqs='CERT_REQUIRED', # Force certificate check.
+    			ca_certs=certifi.where()
+			)
 		else:
-			self.http = urllib3.PoolManager()
+			self.http = urllib3.PoolManager(
+				#cert_reqs='CERT_REQUIRED', # Force certificate check.
+    			ca_certs=certifi.where()
+			)
 
 
 	def Cancel(self, state):
@@ -108,39 +106,6 @@ class URLParser:
 			done_queue.put(status_code)
 		return True
 	
-	def arbitraryDownload(self, url, home, frame):
-		if (not(url[:7] == "http://" or url[:8] == "https://")): return False
-		workDir = home + "/" + URLParser.LastFolderInPath(self, url)
-		if not os.path.isdir(workDir):
-			os.makedirs(workDir)
-		i = 1
-		boolContinue = True
-		while boolContinue:
-			boolContinue = False
-			if i < 10:
-				padding = "00" + str(i)
-			elif i < 100:
-				padding = "0" + str(i)
-			elif i < 1000:
-				padding = str(i)
-			else:
-				return
-			try:
-				for ext in self.extensions:
-					nUrl = url + str(i) + ext
-					print "Testing URL:", nUrl
-					data = self.testURL(nUrl)
-					if data != False:
-						print 'Downloading: ' + padding + ext
-						wx.CallAfter(frame.UiPrint, 'Downloading: ' + padding + ext)
-						with open(workDir + "/" + padding + ext, "wb") as dlFile:
-							dlFile.write(data)
-						boolContinue = True
-						break
-			except Exception, e:
-				pass
-			i += 1
-	
 	def downloadFullSeries(self, url, home, frame, isZip, language):
 
 		if url[-1] != "/":
@@ -190,19 +155,15 @@ class URLParser:
 		if len(url) < 7:
 			return False
 		elif (len(url) < 19 or not(url[:14] == "http://bato.to" or url[:15] == "https://bato.to" or url[:18] == "http://www.bato.to" or url[:19] == "https://www.bato.to")):
-			URLParser.arbitraryDownload(self, url, home, frame)
 			return False
 		elif "bato.to/comic/" in url:
 			return URLParser.downloadFullSeries(self, url, home, frame, isZip, language)
 		else:
 			if (not url[-1] == "/" and not url[-1] == "/1"): url += "/1"
 
-		if '_by_' not in url:
-			groupName = self.findGroupName(url)
-			if groupName:
-				url = url[:url.rindex('/')] + '_by_'+groupName + '/1'
+		info = self.getChapterInfo(url)
 		
-		lastPath = URLParser.LastFolderInPath(self, url)
+		lastPath = info.series + " - " + info.chapter + " by " + info.group
 		workDir = home + "/" + lastPath
 		self.zf = None
 		if isZip:
@@ -213,28 +174,20 @@ class URLParser:
 		elif not os.path.isdir(workDir):
 			os.makedirs(workDir)
 		
-		i = 1
 		urls = []
 		wx.CallAfter(frame.UiPrint, 'Indexing...')
 		
 		while not self.cancel:
-			try:
-				arg = URLParser.AbsoluteFolder(self, url) + str(i)
-				wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(i))
-				print 'Indexing page ' + str(i)
-				regex = URLParser.findFormat(self, arg)
-				if regex:
-					extension = os.path.splitext(regex)[1].lower()
-					if extension in self.extensions:
-						if URLParser.Download(self, regex, workDir, frame):
-							urls.append(regex)
-					else:
-						break
-				else:
+			for i in info.pages:
+				try:
+					wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(i))
+					print 'Indexing page ' + str(i)
+
+					pageUrl = self.findExtension(info.format, i)
+					if pageUrl and URLParser.Download(self, pageUrl, workDir, frame):
+							urls.append(pageUrl)
+				except Exception, e:
 					break
-			except Exception, e:
-				break
-			i += 1
 		
 		if self.cancel:
 			return False
@@ -302,12 +255,7 @@ class URLParser:
 	def findExtension(self, path, i):
 
 		for s in self.extensions:
-			if (self.testURL(path + s) != False):
-				return path + s
-		
-		form = self.FormatNumber(i + 1, 2)
-		for s in self.extensions:
-			url = path + "-" + form + s
+			url = path + 'img' + format(i, 6) + s
 			if (self.testURL(url) != False):
 				return url
 
@@ -317,12 +265,37 @@ class URLParser:
 		
 		r = self.http.request('GET', url)
 		return r.data if r.status == 200 else False
-	
-	def findFormat(self, url):
 
-		if 'supress_webtoon' not in url:
-			url += '?supress_webtoon=t' #Doesn't affect normal chapters, but makes webtoons easier to parse
-		
+	def getChapterInfo(self, url):
+		if '#' in url:
+			url = url[url.rindex('#')+1:]
+			if len(url) > 0:
+				url = "http://bato.to/areader?id="+url+"&p=1"
+				url = self.suppressWebtoon(url)
+				req = self.http.request('GET', url)
+				dom = hlxml.fromstring(req.data)
+
+				group = dom.xpath(".//*[@name='group_select']")[0].value
+				group = group[:group.rindex(' -')]
+				series = dom.xpath(".//ul/li/a")[0].text
+				chapter = dom.xpath(".//*[@name='chapter_select']")[0].value
+				pages = len(dom.xpath(".//*[@name='page_select']")[0])
+				pFormat = dom.xpath(".//img[starts-with(@src, 'http://img.bato.to')]")
+				pFormat = self.AbsoluteFolder(pFormat[0].src)
+
+				vals = {
+					'group':group,
+					'series':series,
+					'chapter':chapter,
+					'pages':pages,
+					'format':pFormat
+				}
+				return vals
+		return None
+	
+	def findFormat(self, pFormat, i):
+
+		url = self.suppressWebtoon(url)
 		r = self.http.request('GET', url)
 		dom = hlxml.fromstring(r.data)
 		img = dom.xpath(".//*[@id='comic_page']")[0]
@@ -334,28 +307,18 @@ class URLParser:
 			return src
 		
 		return False
-	
-	def findGroupName(self, url):
-		
-		r = self.http.request('GET', url)
-		dom = hlxml.fromstring(r.data)
-		sel = dom.xpath(".//*[@name='group_select']")
-		if len(sel) > 0:
-			val = sel[0].value
-			if val is not None:
-				val = val[:val.rindex('/')] #Strip language
-				val = val[:val.rindex('/')] #Strip chapter id
-				val = val[val.rindex('/')+1:] #Get group name
-				val = val[:val.rindex('-')] #Strip group id
-				return val
-		return False
+
+	def suppressWebtoon(self, url):
+		if 'supress_webtoon' not in url:
+			url += '&supress_webtoon=t' #Doesn't affect normal chapters, but makes webtoons easier to parse
+		return url
 	
 	def Download(self, url, workDir, frame):
 		if self.cancel:
 			return False
-		filep = URLParser.LastFileInPath(self, url)
+		filep = self.LastFileInPath(url)
 		lFile = workDir + "/" + filep
-		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(http.urlopen('GET', url).headers["Content-Length"]):
+		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(self.http.urlopen('GET', url).headers["Content-Length"]):
 			wx.CallAfter(frame.UiPrint, filep + ' already exists')
 			return False
 		else:
@@ -374,26 +337,6 @@ class URLParser:
 	def AbsoluteFolder(self, path):
 		start = path.rindex('/')
 		return path[:start + 1]
-	
-	def FormatNumber(self, i, places):
-		strBuffer = ""
-		precede = 0
-		
-		if (i < 10):
-			precede = 1
-		elif (i < 100):
-			precede = 2
-		elif (i < 1000):
-			precede = 3
-		
-		a = 0
-		while (a < places - precede):
-			strBuffer += "0"
-			a += 1
-		
-		strBuffer += i
-		
-		return strBuffer
 
 	def getUpdates(self, url, lastParsed):
 
@@ -425,6 +368,42 @@ class URLParser:
 						newDateStr = dateStr
 		
 		return [True, newDateStr, newItems]
+
+	def login(self, username, password):
+
+		url = "https://bato.to/forums/"
+		r = self.http.request('GET', url)
+		dom = hlxml.fromstring(r.data)
+		loginDiv = dom.xpath(".//*[@id='login']")[0]
+
+		auth_key = loginDiv.xpath(".//*[@name='auth_key']")[0].value
+		referer = loginDiv.xpath(".//*[@name='referer']")[0].value
+
+		params = json.dumps({
+			'app':'core',
+			'module':'global',
+			'section':'login',
+			'do':'process',
+			'anonymous':'on',
+			'rememberMe':'on',
+			'auth_key':auth_key,
+			'referer':referer,
+			'ips_username':username,
+			'ips_password':password,
+		})
+
+		r = self.http.urlopen(
+			'POST',
+			'https://bato.to/forums/index.php',
+			headers={'Content-Type':'application/json'},
+			body=params
+		)
+
+		#r = self.http.request_encode_body('POST', url)
+		#print r.data
+		#dom = hlxml.fromstring(r.data)
+		with open('/tmp/batoto.txt', "w") as dlFile:
+			dlFile.write(r.data)
 
 
 def LastFolderInPath(path):
