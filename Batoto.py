@@ -25,6 +25,7 @@ except ImportError:
 	sys.exit()
 
 import importlib
+from distutils.version import LooseVersion
 
 required_modules = [
 	['lxml', '3.4.4', 'b3d362bac471172747cda3513238f115cbd6c5f8b8e6319bf6a97a7892724099', 'src/lxml', ''],
@@ -37,9 +38,18 @@ required_modules = [
 missing_modules = []
 for m in required_modules:
 	try:
+		print 'testing '+m[0]
+		if LooseVersion(__import__(m[0]).__version__) < LooseVersion(m[1]):
+			print 'Newer version of '+m[0]+' available'
+			raise ImportError
 		importlib.import_module(m[0])
 	except ImportError:
 		missing_modules.append(m)
+	except AttributeError: #Version number not specified
+		try:
+			importlib.import_module(m[0])
+		except ImportError:
+			missing_modules.append(m)
 
 if len(missing_modules) > 0:
 
