@@ -374,37 +374,46 @@ class URLParser:
 		url = "https://bato.to/forums/"
 		r = self.http.request('GET', url)
 		dom = hlxml.fromstring(r.data)
-		loginDiv = dom.xpath(".//*[@id='login']")[0]
 
+		loginDiv = dom.xpath(".//*[@id='login']")[0]
 		auth_key = loginDiv.xpath(".//*[@name='auth_key']")[0].value
 		referer = loginDiv.xpath(".//*[@name='referer']")[0].value
 
-		params = json.dumps({
-			'app':'core',
-			'module':'global',
-			'section':'login',
-			'do':'process',
-			'anonymous':'on',
-			'rememberMe':'on',
+		url = 'https://bato.to/forums/index.php?app=core&module=global&section=login&do=process'
+		headers = {'cookie': r.getheader('set-cookie')}
+		fields = {
+			'anonymous':1,
+			'rememberMe':1,
 			'auth_key':auth_key,
 			'referer':referer,
 			'ips_username':username,
 			'ips_password':password,
-		})
+		}
 
-		r = self.http.urlopen(
-			'POST',
-			'https://bato.to/forums/index.php',
-			headers={'Content-Type':'application/json'},
-			body=params
-		)
+		r = self.http.request_encode_body('POST', url, fields, headers, redirect=False)
+		encHeaders = self.parseHeaders(r)
+		
+		if 'member_id' in dictHeaders:
+			return {'cookie': dictHeaders} #Login successful
+		else:
+			return False #Login failed
 
-		#r = self.http.request_encode_body('POST', url)
-		#print r.data
-		#dom = hlxml.fromstring(r.data)
-		with open('/tmp/batoto.txt', "w") as dlFile:
-			dlFile.write(r.data)
+	#This method takes a request object, grabs its headers, and turns them into a dict.
+	#Note, however, that it strips out duplicate headers, and doesn't differentiate
+	#between individual set-cookie commands.
+	#This should ideally be fixed, but is not a priority.
+	def parseHeaders(self, r):
 
+		encHeaders = r.getheader('set-cookie').replace('httponly,', '').split("; ") #Get headers as list
+		dictHeaders = {}
+
+		for h in encHeaders:
+			if '=' in h:
+				h = h.strip()
+				h = h.split("=", 1) #Turn each header into key/value pair
+				dictHeaders[h[0]] = h[1] #Add header to dictionary
+
+		return dictHeaders
 
 def LastFolderInPath(path):
 	start = path.rindex('/')
