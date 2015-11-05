@@ -312,14 +312,16 @@ class BatotoFrame(wx.Frame):
 		if (totalLines > 0):
 			line = self.URLList.GetLineText(0)
 			language = self.config.get(SECTION, 'language')
-			self.thread = BatotoThread(2, line, self)
+			if self.loginIfNeeded():
+				self.thread = BatotoThread(2, line, self)
 
 	def ParseLast(self, e):
 		totalLines = self.UiGetNumberOfLines()
 		if totalLines > 0:
 			line = self.URLList.GetLineText(totalLines - 1)
 			language = self.config.get(SECTION, 'language')
-			self.thread = BatotoThread(1, line, self, False)
+			if self.loginIfNeeded():
+				self.thread = BatotoThread(1, line, self, False)
 
 	def ParseAll(self, e):
 		totalLines = self.UiGetNumberOfLines()
@@ -339,7 +341,8 @@ class BatotoFrame(wx.Frame):
 					lines.append(self.URLList.GetLineText(count))
 					count -= 1
 			
-			self.thread = BatotoThread(0, lines, self, not oldOrder)
+			if self.loginIfNeeded():
+				self.thread = BatotoThread(0, lines, self, not oldOrder)
 
 	def Cancel(self, e):
 		if self.thread != None:
@@ -522,7 +525,7 @@ class BatotoFrame(wx.Frame):
 			self.config.set(SECTION, 'password', dlg.password.GetValue())
 		dlg.Destroy()
 
-	def loginIfNeeded(self, e):
+	def loginIfNeeded(self):
 
 		reason = ''
 		loginNeeded = False

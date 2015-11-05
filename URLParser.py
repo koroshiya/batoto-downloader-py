@@ -40,8 +40,6 @@ class URLParser:
 		self.extensions = [".jpeg", ".jpg", ".png", ".gif"]
 		self.zf = None
 
-		print certifi.where()
-
 		if len(proxy) > 0:
 			self.http = urllib3.ProxyManager(
 				proxy,
