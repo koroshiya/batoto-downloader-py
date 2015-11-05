@@ -7,6 +7,7 @@ from URLParser import URLParser
 import os
 from os.path import expanduser, isfile, join
 from threading import Thread
+from LoginDialog import LoginDialog
 import ConfigParser
 
 FILE_IMPORT = 650
@@ -31,6 +32,7 @@ SETTING_ZIP_MENU = 686
 SETTING_RSS_FRAME = 687
 SETTING_LANGUAGE_FRAME = 688
 SETTING_PROXY = 689
+SETTING_LOGIN = 690
 
 HOME_DIR = expanduser("~")
 if os.name == 'nt':
@@ -102,6 +104,7 @@ class BatotoFrame(wx.Frame):
 		self.SetMinSize((WIDTH_MIN,HEIGHT_MIN))
 		self.InitUI()
 		self.thread = None
+		self.cookie = self.LoadCookiesFromFile()
 
 	def InitUI(self):
 
@@ -162,6 +165,7 @@ class BatotoFrame(wx.Frame):
 		menuItemRSSDialog = wx.MenuItem(menuSettings, SETTING_RSS_FRAME, '&RSS Settings')
 		menuItemLanguageDialog = wx.MenuItem(menuSettings, SETTING_LANGUAGE_FRAME, '&Language Settings')
 		menuItemProxyDialog = wx.MenuItem(menuSettings, SETTING_PROXY, '&HTTP Proxy')
+		menuItemLoginDialog = wx.MenuItem(menuSettings, SETTING_LOGIN, '&Login Credentials')
 
 		#menuItemOpen.SetBitmap(wx.Bitmap('file.png'))
 		#RSSDialog
@@ -186,6 +190,7 @@ class BatotoFrame(wx.Frame):
 		menuSettings.AppendItem(menuItemRSSDialog)
 		menuSettings.AppendItem(menuItemLanguageDialog)
 		menuSettings.AppendItem(menuItemProxyDialog)
+		menuSettings.AppendItem(menuItemLoginDialog)
 
 		menubar.Append(menuFile, '&File')
 		menubar.Append(menuParse, '&Parse')
@@ -208,6 +213,7 @@ class BatotoFrame(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.showRSSDialog, id=SETTING_RSS_FRAME)
 		self.Bind(wx.EVT_MENU, self.showLanguageDialog, id=SETTING_LANGUAGE_FRAME)
 		self.Bind(wx.EVT_MENU, self.showProxyDialog, id=SETTING_PROXY)
+		self.Bind(wx.EVT_MENU, self.showLoginDialog, id=SETTING_LOGIN)
 
 		self.statusbar = self.CreateStatusBar()
 		self.SetMenuBar(menubar)
@@ -273,14 +279,30 @@ class BatotoFrame(wx.Frame):
 		wx.Exit()
 
 	def AddURL(self, e):
-		line = self.inputText.GetLineText(0)
-		if (line[:4] == "http" or line[:4] == "www."):
-			self.inputText.Clear()
-			self.DirectlyAddURL(line)
-			self.Save(e)
+
+		originalLine = line = self.inputText.GetLineText(0)
+		validStartUrls = ["http://www.", "https://www.", "http://", "https://", "www."]
+
+		for url in validStartUrls:
+			if line.startswith(url):
+				line = line[len(url):]
+				url = "bato.to/"
+
+				if line.startswith(url):
+					line = line[len(url):]
+					validSubdirs = ["reader#", "comic/"]
+
+					for subdir in validSubdirs:
+						if line.startswith(subdir):
+							self.inputText.Clear()
+							self.DirectlyAddURL(originalLine)
+							self.Save(e)
+							break
+
+				break
 
 	def DirectlyAddURL(self, line):
-		if (len(line) > 6): #At least the length of http://
+		if (len(line) >= 20): #At least the length of http://bato.to/comic/
 			if (len(self.URLList.GetLineText(0)) > 0):
 				self.URLList.AppendText("\n")
 			self.URLList.AppendText(line)
@@ -359,6 +381,18 @@ class BatotoFrame(wx.Frame):
 		if len(url) > 0:
 			self.DirectlyAddURL(url)
 
+	def LoadCookiesFromFile(self):
+		cookies = self.config.get(SECTION, 'cookie')
+		cookies = cookies.split('\n')
+		dictHeaders = {}
+
+		for h in cookies:
+			if len(h) > 0:
+				h = h.split("=", 1)
+				dictHeaders[h[0]] = h[1]
+
+		return dictHeaders
+
 	def LoadSettingsFromFile(self):
 		self.config = ConfigParser.RawConfigParser({
 			'orderOldFirst':'False',
@@ -367,7 +401,10 @@ class BatotoFrame(wx.Frame):
 			'rss':'',
 			'rssDate':'',
 			'language':'English',
-			'proxy':''
+			'proxy':'',
+			'cookie':'',
+			'username':'',
+			'password':''
 		})
 
 		if isfile(SETTINGS_FILE):
@@ -380,8 +417,15 @@ class BatotoFrame(wx.Frame):
 		arr = self.UiGetList()
 		oldFirst = str(self.menuItemSettingsOrderOld.IsChecked())
 		zipEnabled = str(self.menuItemSettingsZipTrue.IsChecked())
+		cookie = ''
+
+		for key, val in self.cookie:
+			cookie += key + '=' + val + '\n'
+		if len(cookie) > 0:
+			cookie = cookie[:-1] #remove final newline
 
 		self.config.set(SECTION, 'urls', arr)
+		self.config.set(SECTION, 'cookie', cookie)
 		self.config.set(SECTION, 'orderOldFirst', oldFirst)
 		self.config.set(SECTION, 'zip', zipEnabled)
 
@@ -389,26 +433,16 @@ class BatotoFrame(wx.Frame):
 			self.config.write(configfile)
 
 	def SetLocked(self, lock):
+		btns = [self.btn1, self.btn2, self.btn3, self.btn4,
+				self.btn5, self.btn6, self.btn7, self.btn9]
 		if lock:
-			self.btn1.Disable()
-			self.btn2.Disable()
-			self.btn3.Disable()
-			self.btn4.Disable()
-			self.btn5.Disable()
-			self.btn6.Disable()
-			self.btn7.Disable()
+			for btn in btns:
+				btn.Disable()
 			self.btn8.Enable()
-			self.btn9.Disable()
 		else:
-			self.btn1.Enable()
-			self.btn2.Enable()
-			self.btn3.Enable()
-			self.btn4.Enable()
-			self.btn5.Enable()
-			self.btn6.Enable()
-			self.btn7.Enable()
+			for btn in btns:
+				btn.Enable()
 			self.btn8.Disable()
-			self.btn9.Enable()
 			self.thread.parser.Cancel(False)
 	
 	def UiPrint(self, text):
@@ -434,9 +468,9 @@ class BatotoFrame(wx.Frame):
 		if self.URLList.GetValue() != '':
 			n = self.URLList.GetNumberOfLines()
 			for i in xrange(0, n):
-				if i > 0:
-					arr += '\n'
-				arr += self.UiGetLine(i)
+				arr += self.UiGetLine(i) + '\n'
+			if len(arr) > 0:
+				arr = arr[:-1] #remove final newline
 		return arr
 
 	def showRSSDialog(self, e):
@@ -479,6 +513,49 @@ class BatotoFrame(wx.Frame):
 		
 		if result is not False:
 			self.config.set(SECTION, 'proxy', result)
+
+	def showLoginDialog(self, e):
+		dlg = LoginDialog(self, self.config.get(SECTION, 'username'), self.config.get(SECTION, 'password'))
+		res = dlg.ShowModal()
+		if res == wx.ID_OK:
+			self.config.set(SECTION, 'username', dlg.username.GetValue())
+			self.config.set(SECTION, 'password', dlg.password.GetValue())
+		dlg.Destroy()
+
+	def loginIfNeeded(self, e):
+
+		reason = ''
+		loginNeeded = False
+		parser = URLParser(self.config.get(SECTION, 'proxy'))
+
+		if len(self.config.get(SECTION, 'username')) == 0 or len(self.config.get(SECTION, 'username')) == 0:
+			reason = 'Username and password cannot be empty.\n' + \
+					'Go to Settings -> Login Credentials'
+		elif self.cookie is None or 'expires' not in self.cookie:
+			loginNeeded = True
+		elif parser.minutesUntil(self.cookie['expires']) <= 10:
+			loginNeeded = True
+
+		if loginNeeded:
+			busy = wx.BusyInfo("Attempting login...")
+			args = parser.login(self.config.get(SECTION, 'username'), self.config.get(SECTION, 'password'))
+			del busy
+
+			if args:
+				self.cookie = args
+				self.SaveConfig()
+			else:
+				reason = 'Login failed.\n' + \
+							'Please try logging in via a web browser to ensure that ' + \
+							'the username/password combination is correct, your network ' + \
+							'allows you to connect to Batoto, there are no connectivity ' + \
+							'issues on Batoto\'s end, etc.'
+
+		if len(reason) > 0:
+			self.ShowMessage("Login Error", reason)
+			return False
+		else:
+			return True
 
 	def CheckForUpdates(self, e):
 		url = self.config.get(SECTION, 'rss')
