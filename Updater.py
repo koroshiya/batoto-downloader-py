@@ -1,3 +1,5 @@
+#!/usr/bin/env python2.7
+
 import threading, wx, time, urllib2, sys, os, tarfile, shutil, hashlib, importlib
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
