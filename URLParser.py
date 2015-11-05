@@ -20,8 +20,7 @@ else:
 	from multiprocessing import Process
 import zipfile
 import tempfile
-import json
-from time import strptime
+from time import strptime, strftime
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
@@ -414,6 +413,17 @@ class URLParser:
 				dictHeaders[h[0]] = h[1] #Add header to dictionary
 
 		return dictHeaders
+
+	#Returns minutes until time passed in lapses
+	def minutesUntil(self, time1):
+		time1 = strptime(time1, "%a, %d %b %Y %H:%M:%S +0000")
+		cTime = strftime("%a, %d %b %Y %H:%M:%S +0000")
+		cTime = strptime(cTime)
+
+		if time1 > cTime:
+			return 0
+		else:
+			return (time.mktime(cTime) - time.mktime(time1)) / 60
 
 def LastFolderInPath(path):
 	start = path.rindex('/')
