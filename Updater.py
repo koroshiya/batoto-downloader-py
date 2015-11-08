@@ -7,7 +7,7 @@ class MainFrame(wx.Frame):
     def __init__(self, parent, ID, title, missing_modules):
         wx.Frame.__init__(self, parent, ID, title, size=(300,150))
 
-        self.txt = wx.StaticText(self, 0, "Downloading module...")
+        self.txt = wx.StaticText(self, 0, "Downloading module(s)...")
         self.bar = wx.Gauge(self, range=100)
         self.buCancel = wx.Button(self, label="Cancel")
         self.bt = wx.Button(self, wx.ID_OK)
