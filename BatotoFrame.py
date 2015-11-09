@@ -96,7 +96,8 @@ class BatotoThread(Thread):
 			wx.CallAfter(self.frame.UiClear, self.order)
 
 	def ParseLine(self, line):
-		if self.parser.testURL(line):
+		line = line.strip(' \t\n\r')
+		if line and self.parser.testURL(line):
 			global HOME_DIR
 			self.parser.downloadFromURL(line, HOME_DIR, self.frame, self.isZip, self.language)
 

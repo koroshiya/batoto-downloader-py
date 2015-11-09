@@ -51,6 +51,7 @@ class URLParser:
 		self.cancel = False
 		self.extensions = [".jpeg", ".jpg", ".png", ".gif"]
 		self.zf = None
+		self.cookies = None
 
 		if len(proxy) > 0:
 			self.http = urllib3.ProxyManager(proxy)
@@ -60,6 +61,14 @@ class URLParser:
 
 	def Cancel(self, state):
 		self.cancel = True
+		
+	def buildHeaders(self, headers={}):
+		if self.cookies:
+			headers['Cookie'] = self.cookies
+		return headers
+	
+	def updateSession(self, r):
+		self.cookies = r.getheader('set-cookie')
 	
 	def ContinueDownload(self, url, workdir, frame):
 		if not self.cancel:
@@ -73,7 +82,8 @@ class URLParser:
 						tmpUrl = url.replace('://img', '://img'+str(self.imgServer), 1)
 					else:
 						tmpUrl = url
-					r = self.http.request('GET', tmpUrl)
+					r = self.http.request('GET', tmpUrl, headers=self.buildHeaders())
+					self.updateSession(r)
 					if self.zf is None:
 						with open(workdir + "/" + filep, "wb") as dlFile:
 							dlFile.write(r.data)
@@ -171,8 +181,8 @@ class URLParser:
 	
 	def findChapters(self, url, language):
 		
-		r = self.http.request('GET', url)
-
+		r = self.http.request('GET', url, headers=self.buildHeaders())
+		self.updateSession(r)
 		dom = hlxml.fromstring(r.data)
 		aList = dom.xpath('//tr[@class="row lang_'+language+' chapter_row"]//a')
 		chapters = []
@@ -186,6 +196,17 @@ class URLParser:
 		
 		return chapters
 
+	def extractUUID(self, lastPath):
+		parts = lastPath.split("#", 2)
+		if len(parts) < 2:
+			return False
+	
+		parts = parts[1].split("_", 1)
+		if len(parts) < 1:
+			return False
+		return parts[0]
+
+
 	def downloadFromURL(self, url, home, frame, isZip, language):
 		if len(url) < 7:
 			return False
@@ -194,16 +215,21 @@ class URLParser:
 			return False
 		elif "bato.to/comic/" in url:
 			return URLParser.downloadFullSeries(self, url, home, frame, isZip, language)
-		else:
-			if (not url[-1] == "/" and not url[-1] == "/1"): url += "/1"
+		#else:
+		#	if (not url[-1] == "/" and not url[-1] == "/1"): url += "/1"
 
 		if '_by_' not in url:
 			groupName = self.findGroupName(url)
-			if groupName:
-				url = url[:url.rindex('/')] + '_by_'+groupName + '/1'
+			#if groupName:
+			#	url = url[:url.rindex('/')] + '_by_'+groupName + '/1'
 		
-		lastPath = URLParser.LastFolderInPath(self, url)
-		workDir = home + "/" + lastPath
+		uuid = self.extractUUID(url)
+		print uuid
+		if not uuid:
+			print "UUID not found in URL\n"
+			return False
+		
+		workDir = home + "/" + uuid
 		self.zf = None
 		if isZip:
 			filename = workDir + '.zip'
@@ -219,10 +245,12 @@ class URLParser:
 		
 		while not self.cancel:
 			try:
-				arg = URLParser.AbsoluteFolder(self, url) + str(i)
+				arg = URLParser.AbsoluteFolder(self, url) + "areader?id=" + uuid + "&p=" + str(i)
+				referer = URLParser.AbsoluteFolder(self, url) + "reader#" + uuid + "_" + str(i)
+				print arg +"\n"
 				wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(i))
 				print 'Indexing page ' + str(i)
-				regex = URLParser.findFormat(self, arg)
+				regex = URLParser.findFormat(self, arg, referer)
 				if regex:
 					extension = os.path.splitext(regex)[1].lower()
 					if extension in self.extensions:
@@ -240,10 +268,10 @@ class URLParser:
 			return False
 		
 		print "\n"		
-		print "Downloading " + lastPath
+		print "Downloading " + uuid
 		print "-----------------------"
 
-		wx.CallAfter(frame.UiPrint, 'Downloading '+lastPath)
+		wx.CallAfter(frame.UiPrint, 'Downloading '+uuid)
 		wx.CallAfter(frame.EnableCancel, False)
 
 		if len(urls) > 0:
@@ -315,15 +343,14 @@ class URLParser:
 	
 	def testURL(self, url):
 		
-		r = self.http.request('GET', url)
+		r = self.http.request('GET', url, headers=self.buildHeaders())
+		self.updateSession(r)
 		return r.data if r.status == 200 else False
 	
-	def findFormat(self, url):
-
-		if 'supress_webtoon' not in url:
-			url += '?supress_webtoon=t' #Doesn't affect normal chapters, but makes webtoons easier to parse
+	def findFormat(self, url, referer):
 		
-		r = self.http.request('GET', url)
+		r = self.http.request('GET', url, headers=self.buildHeaders({'Referer':referer, 'supress_webtoon':'t'}))
+		self.updateSession(r)
 		dom = hlxml.fromstring(r.data)
 		img = dom.xpath(".//*[@id='comic_page']")[0]
 		src = img.get('src')
@@ -337,7 +364,8 @@ class URLParser:
 	
 	def findGroupName(self, url):
 		
-		r = self.http.request('GET', url)
+		r = self.http.request('GET', url, headers=self.buildHeaders())
+		self.updateSession(r)
 		dom = hlxml.fromstring(r.data)
 		sel = dom.xpath(".//*[@name='group_select']")
 		if len(sel) > 0:
