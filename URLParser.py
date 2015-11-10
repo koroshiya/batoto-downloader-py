@@ -286,8 +286,8 @@ class URLParser:
 				req = self.http.urlopen('GET', url, headers=self.buildHeaders(cookies))
 				dom = hlxml.fromstring(req.data)
 
-				with open('/tmp/batoto.txt', 'w') as dlfile:
-					dlfile.write(req.data)
+				#with open('/tmp/batoto.txt', 'w') as dlfile:
+				#	dlfile.write(req.data)
 
 				group = dom.xpath(".//*[@name='group_select']/option/text()")[0]
 				group = group[:group.rindex(' -')]
