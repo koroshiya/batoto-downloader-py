@@ -1,1 +1,7 @@
 *.pyc
+OpenSSL
+pyOpenSSL
+certifi
+ndg
+pyasn1
+*.tar.gz
