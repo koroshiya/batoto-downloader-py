@@ -46,6 +46,7 @@ required_modules = [
 		'sha256sum':'f0a26070d6db0881de8bcc7846934b7c3c930d8f9c79d45883ee48984bc0d672',
 		'dir':'OpenSSL',
 		#'filename':'pyOpenSSL'
+		'versionCheck':False
 	},
 	{
 		'name':'ndg-httpsclient',
@@ -68,10 +69,11 @@ missing_modules = []
 for m in required_modules:
 	try:
 		print 'testing '+m['name']
-		if LooseVersion(__import__(m['name']).__version__) < LooseVersion(m['version']):
-			print 'Newer version of '+m['name']+' available'
-			print 'Comparing '+__import__(m['name']).__version__+' to '+m['version']
-			raise ImportError
+		if 'versionCheck' not in m or ['versionCheck'] == True:
+			if LooseVersion(__import__(m['name']).__version__) < LooseVersion(m['version']):
+				print 'Newer version of '+m['name']+' available'
+				print 'Comparing '+__import__(m['name']).__version__+' to '+m['version']
+				raise ImportError
 		if 'moduleName' in m:
 			importlib.import_module(m['moduleName'])
 		else:
