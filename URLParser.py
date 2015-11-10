@@ -163,6 +163,9 @@ class URLParser:
 			return self.downloadFullSeries(url, home, frame, isZip, language, cookies)
 
 		info = self.getChapterInfo(url, cookies)
+
+		if info is None:
+			return False
 		
 		lastPath = info['series'] + " - " + info['chapter'] + " by " + info['group']
 		workDir = home + "/" + lastPath
@@ -279,7 +282,7 @@ class URLParser:
 		return r.data if r.status == 200 else False
 
 	def getChapterInfo(self, url, cookies):
-		if '#' in url:
+		if url and '#' in url:
 			uuid = url[url.rindex('#')+1:]
 			if len(url) > 0:
 				referer = self.AbsoluteFolder(url) + "reader#" + uuid + "_1"
