@@ -89,8 +89,10 @@ class BatotoThread(Thread):
 			wx.CallAfter(self.frame.UiClear, self.order)
 
 	def ParseLine(self, line):
-		global HOME_DIR
-		self.parser.downloadFromURL(line, HOME_DIR, self.frame, self.isZip, self.language, self.cookie)
+		line = line.strip(' \t\n\r')
+		if line and self.parser.testURL(line):
+			global HOME_DIR
+			self.parser.downloadFromURL(line, HOME_DIR, self.frame, self.isZip, self.language, self.cookie)
 
 class BatotoFrame(wx.Frame):
 
@@ -189,7 +191,7 @@ class BatotoFrame(wx.Frame):
 		menuSettings.AppendItem(menuItemRSSDialog)
 		menuSettings.AppendItem(menuItemLanguageDialog)
 		menuSettings.AppendItem(menuItemProxyDialog)
-		menuSettings.AppendItem(menuItemLoginDialog)
+		#menuSettings.AppendItem(menuItemLoginDialog) #TODO: enable when logins are needed
 
 		menubar.Append(menuFile, '&File')
 		menubar.Append(menuParse, '&Parse')
@@ -509,6 +511,8 @@ class BatotoFrame(wx.Frame):
 		dlg.Destroy()
 
 	def loginIfNeeded(self):
+
+		return True #Skip login check for the time being; necessity hasn't yet arisen
 
 		reason = ''
 		loginNeeded = False

@@ -39,6 +39,7 @@ class URLParser:
 		self.cancel = False
 		self.extensions = [".jpeg", ".jpg", ".png", ".gif"]
 		self.zf = None
+		self.cookies = None
 
 		if len(proxy) > 0:
 			self.http = urllib3.ProxyManager(
@@ -56,7 +57,7 @@ class URLParser:
 	def Cancel(self, state):
 		self.cancel = True
 	
-	def ContinueDownload(self, url, workdir, frame, cookies):
+	def ContinueDownload(self, url, workdir, frame):
 		if not self.cancel:
 			filep = self.LastFileInPath(url)
 			#frame.SetStatusText('Downloading: ' + filep)
@@ -68,7 +69,8 @@ class URLParser:
 						tmpUrl = url.replace('://img', '://img'+str(self.imgServer), 1)
 					else:
 						tmpUrl = url
-					r = self.http.request('GET', tmpUrl, headers=cookies)
+					r = self.http.request('GET', tmpUrl, headers=self.buildHeaders())
+					self.updateSession(r)
 					if self.zf is None:
 						with open(workdir + "/" + filep, "wb") as dlFile:
 							dlFile.write(r.data)
@@ -95,11 +97,11 @@ class URLParser:
 		else:
 			return "Page skipped"
 	
-	def worker(self, work_queue, done_queue, workdir, frame, cookies):
+	def worker(self, work_queue, done_queue, workdir, frame):
 		for url in iter(work_queue.get, 'STOP'):
 			if self.cancel:
 				return False
-			status_code = self.ContinueDownload(url, workdir, frame, cookies)
+			status_code = self.ContinueDownload(url, workdir, frame)
 			done_queue.put(status_code)
 		return True
 	
@@ -133,7 +135,8 @@ class URLParser:
 	
 	def findChapters(self, url, language):
 		
-		r = self.http.request('GET', url)
+		r = self.http.request('GET', url, headers=self.buildHeaders())
+		self.updateSession(r)
 
 		dom = hlxml.fromstring(r.data)
 		aList = dom.xpath('//tr[@class="row lang_'+language+' chapter_row"]//a')
@@ -155,12 +158,10 @@ class URLParser:
 			return False
 		elif "bato.to/comic/" in url:
 			return self.downloadFullSeries(url, home, frame, isZip, language, cookies)
-		else:
-			if (not url[-1] == "/" and not url[-1] == "/1"): url += "/1"
 
 		info = self.getChapterInfo(url, cookies)
 		
-		lastPath = info.series + " - " + info.chapter + " by " + info.group
+		lastPath = info['series'] + " - " + info['chapter'] + " by " + info['group']
 		workDir = home + "/" + lastPath
 		self.zf = None
 		if isZip:
@@ -171,19 +172,23 @@ class URLParser:
 		elif not os.path.isdir(workDir):
 			os.makedirs(workDir)
 		
-		urls = []
 		wx.CallAfter(frame.UiPrint, 'Indexing...')
-		
-		while not self.cancel:
-			for i in info.pages:
+
+		if len(info['urls']) > 0:
+			urls = info['urls']
+		else:
+			urls = []
+			for i in range(1, info['pages']+1):
 				try:
 					wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(i))
 					print 'Indexing page ' + str(i)
 
-					pageUrl = self.findExtension(info.format, i, cookies)
-					if pageUrl and self.Download(pageUrl, workDir, frame, cookies):
+					pageUrl = self.findExtension(info['format'], i)
+					if pageUrl and self.Download(pageUrl, workDir, frame):
 							urls.append(pageUrl)
 				except Exception, e:
+					break
+				if self.cancel:
 					break
 		
 		if self.cancel:
@@ -206,9 +211,9 @@ class URLParser:
 				if self.cancel:
 					return False
 				elif os.name == 'nt':
-					p = Thread(target=self.worker, args=(self.work_queue, self.done_queue, workDir, frame, cookies))
+					p = Thread(target=self.worker, args=(self.work_queue, self.done_queue, workDir, frame))
 				else:
-					p = Process(target=self.worker, args=(self.work_queue, self.done_queue, workDir, frame, cookies))
+					p = Process(target=self.worker, args=(self.work_queue, self.done_queue, workDir, frame))
 				p.start()
 				self.processes.append(p)
 				self.work_queue.put('STOP')
@@ -247,51 +252,67 @@ class URLParser:
 		wx.CallAfter(frame.UiPrint, 'Finished')
 		wx.CallAfter(frame.EnableCancel, True)
 		
-		return not self.cancel and i != 1
+		return not self.cancel and len(urls) > 0
 	
-	def findExtension(self, path, i, cookies):
+	def findExtension(self, path, i):
 
 		for s in self.extensions:
-			url = path + 'img' + format(i, 6) + s
-			if (self.testURL(url, cookies) != False):
+			url = path + 'img' + format(i, "06") + s
+			if (self.testURL(url) != False):
 				return url
 
 		return None
 	
-	def testURL(self, url, cookies):
+	def testURL(self, url):
 		
-		r = self.http.urlopen('GET', url, headers=cookies)
+		cookies = {}
+		if '#' in url:
+			uuid = url[url.rindex('#')+1:]
+			referer = self.AbsoluteFolder(url) + "reader#" + uuid + "_1"
+			cookies = {'Referer':referer, 'supress_webtoon':'t'}
+
+		r = self.http.urlopen('GET', url, headers=self.buildHeaders(cookies))
+		self.updateSession(r)
 		return r.data if r.status == 200 else False
 
 	def getChapterInfo(self, url, cookies):
 		if '#' in url:
-			url = url[url.rindex('#')+1:]
+			uuid = url[url.rindex('#')+1:]
 			if len(url) > 0:
-				url = 'https://bato.to/areader?id='+url+'&p=1'
-				url = self.suppressWebtoon(url)
-				print cookies
+				referer = self.AbsoluteFolder(url) + "reader#" + uuid + "_1"
+				url = str(self.AbsoluteFolder(url) + 'areader?id='+uuid+'&p=1')
+				cookies = {'Referer':referer, 'supress_webtoon':'t'}
 
-				req = self.http.urlopen('GET', url, headers=cookies)
+				req = self.http.urlopen('GET', url, headers=self.buildHeaders(cookies))
 				dom = hlxml.fromstring(req.data)
 
 				with open('/tmp/batoto.txt', 'w') as dlfile:
 					dlfile.write(req.data)
 
-				group = dom.xpath(".//*[@name='group_select']")[0].value
+				group = dom.xpath(".//*[@name='group_select']/option/text()")[0]
 				group = group[:group.rindex(' -')]
 				series = dom.xpath(".//ul/li/a")[0].text
-				chapter = dom.xpath(".//*[@name='chapter_select']")[0].value
-				pages = len(dom.xpath(".//*[@name='page_select']")[0])
-				pFormat = dom.xpath(".//img[starts-with(@src, 'http://img.bato.to')]")
-				pFormat = self.AbsoluteFolder(pFormat[0].src)
+				chapter = dom.xpath(".//*[@name='chapter_select']/option/text()")[0]
+				pFormat = dom.xpath(".//img[starts-with(@src, 'http://img.bato.to/comics/2')]/@src")
+				#comics/2 ensures we only get comics from year 2000 onwards; not misc images in comics dir
+				pages = dom.xpath(".//*[@name='page_select']")
+				if len(pages) > 0:
+					pages = len(pages[0])
+					pFormat = self.AbsoluteFolder(pFormat[0])
+				else:
+					pages = 1
+					urls = pFormat
+					pFormat = ''
 
 				vals = {
 					'group':group,
 					'series':series,
 					'chapter':chapter,
 					'pages':pages,
-					'format':pFormat
+					'format':pFormat,
+					'urls':urls
 				}
+				print vals
 				return vals
 		return None
 
@@ -300,12 +321,13 @@ class URLParser:
 			url += '&supress_webtoon=t' #Doesn't affect normal chapters, but makes webtoons easier to parse
 		return str(url)
 	
-	def Download(self, url, workDir, frame, cookies):
+	def Download(self, url, workDir, frame):
+		print 'downloading...'
 		if self.cancel:
 			return False
 		filep = self.LastFileInPath(url)
 		lFile = workDir + "/" + filep
-		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(self.http.urlopen('GET', url, headers=cookies).headers["Content-Length"]):
+		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(self.http.urlopen('GET', url, headers=self.buildHeaders()).headers["Content-Length"]):
 			wx.CallAfter(frame.UiPrint, filep + ' already exists')
 			return False
 		else:
@@ -431,6 +453,14 @@ class URLParser:
 				print cookie
 				return cookie[cookie.index('=')+1 : cookie.index(';')]
 		return False
+
+	def buildHeaders(self, headers={}):
+		if self.cookies:
+			headers['Cookie'] = self.cookies
+		return headers
+	
+	def updateSession(self, r):
+		self.cookies = r.getheader('set-cookie')
 
 
 def LastFolderInPath(path):
