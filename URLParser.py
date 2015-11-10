@@ -42,7 +42,7 @@ class URLParser:
 		self.extensions = [".jpeg", ".jpg", ".png", ".gif"]
 		self.zf = None
 		self.cookies = None
-		self.valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+		self.valid_chars = "-_.(),'[]{}*&^%$#@! %s%s" % (string.ascii_letters, string.digits)
 
 		if len(proxy) > 0:
 			self.http = urllib3.ProxyManager(
