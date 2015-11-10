@@ -100,12 +100,34 @@ class URLParser:
 		else:
 			return "Page skipped"
 	
+	def IndexPage(self, info, workdir, frame):
+		try:
+			wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(len(done_queue) + 1))
+			print 'Indexing page ' + str(len(done_queue) + 1)
+
+			pageUrl = self.findExtension(info['format'], info['index'])
+			if pageUrl and self.Download(pageUrl, workDir, frame):
+				return pageUrl
+		except Exception, e:
+			print e
+
+		return False
+
 	def worker(self, work_queue, done_queue, workdir, frame):
 		for url in iter(work_queue.get, 'STOP'):
 			if self.cancel:
 				return False
 			status_code = self.ContinueDownload(url, workdir, frame)
 			done_queue.put(status_code)
+		return True
+	
+	def indexer(self, work_queue, done_queue, workdir, frame):
+		for info in iter(work_queue.get, 'STOP'):
+			if self.cancel:
+				return False
+			url = self.IndexPage(info, workdir, frame)
+			if url:
+				done_queue.put(url)
 		return True
 	
 	def downloadFullSeries(self, url, home, frame, isZip, language, cookies):
@@ -185,18 +207,28 @@ class URLParser:
 		else:
 			urls = []
 			for i in range(1, info['pages']+1):
-				try:
-					wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(i))
-					print 'Indexing page ' + str(i)
-
-					pageUrl = self.findExtension(info['format'], i)
-					print "fake downloading"
-					if pageUrl and self.Download(pageUrl, workDir, frame):
-							urls.append(pageUrl)
-				except Exception, e:
-					break
+				self.work_queue.put({'format':info['format'], 'index':i})
+				
+			for w in xrange(self.workers):
 				if self.cancel:
-					break
+					return False
+				elif os.name == 'nt':
+					p = Thread(target=self.indexer, args=(self.work_queue, self.done_queue, workDir, frame))
+				else:
+					p = Process(target=self.indexer, args=(self.work_queue, self.done_queue, workDir, frame))
+				p.start()
+				self.processes.append(p)
+				self.work_queue.put('STOP')
+
+			for p in self.processes:
+				if self.cancel:
+					return False
+				p.join()
+
+			self.done_queue.put('STOP')
+
+			for url in iter(self.done_queue.get, 'STOP'):
+				urls.append(url)
 		
 		if self.cancel:
 			return False
@@ -209,9 +241,11 @@ class URLParser:
 		wx.CallAfter(frame.EnableCancel, False)
 
 		if len(urls) > 0:
+			
+			self.work_queue.clear()
+			self.done_queue.clear()
+
 			for url in urls:
-				if self.cancel:
-					break
 				self.work_queue.put(url)
 				
 			for w in xrange(self.workers):
@@ -283,7 +317,7 @@ class URLParser:
 		return r.status == 200
 
 	def getChapterInfo(self, url, cookies):
-		if url and '#' in url:
+		if '#' in url:
 			uuid = url[url.rindex('#')+1:]
 			if len(url) > 0:
 				referer = self.AbsoluteFolder(url) + "reader#" + uuid + "_1"
@@ -311,7 +345,7 @@ class URLParser:
 					pages = 1
 					urls = pFormat
 					pFormat = ''
-
+ 
 				group = self.sanitize(group)
 				series = self.sanitize(series)
 				chapter = self.sanitize(chapter)
@@ -470,7 +504,6 @@ class URLParser:
 
 	def sanitize(self, val):
 		return ''.join(c for c in val if c in self.valid_chars)
-
 
 def LastFolderInPath(path):
 	start = path.rindex('/')
