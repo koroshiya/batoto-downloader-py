@@ -57,6 +57,7 @@ class BatotoThread(Thread):
 		self.order = order
 		self.isZip = frame.menuItemSettingsZipTrue.IsChecked()
 		self.language = frame.config.get(SECTION, 'language')
+		self.cookie = frame.LoadCookiesFromFile()
 		self.start() #start automatically
 	
 	def run(self):
@@ -88,9 +89,8 @@ class BatotoThread(Thread):
 			wx.CallAfter(self.frame.UiClear, self.order)
 
 	def ParseLine(self, line):
-		if self.parser.testURL(line):
-			global HOME_DIR
-			self.parser.downloadFromURL(line, HOME_DIR, self.frame, self.isZip, self.language)
+		global HOME_DIR
+		self.parser.downloadFromURL(line, HOME_DIR, self.frame, self.isZip, self.language, self.cookie)
 
 class BatotoFrame(wx.Frame):
 
@@ -104,7 +104,6 @@ class BatotoFrame(wx.Frame):
 		self.SetMinSize((WIDTH_MIN,HEIGHT_MIN))
 		self.InitUI()
 		self.thread = None
-		self.cookie = self.LoadCookiesFromFile()
 
 	def InitUI(self):
 
@@ -385,16 +384,7 @@ class BatotoFrame(wx.Frame):
 			self.DirectlyAddURL(url)
 
 	def LoadCookiesFromFile(self):
-		cookies = self.config.get(SECTION, 'cookie')
-		cookies = cookies.split('\n')
-		dictHeaders = {}
-
-		for h in cookies:
-			if len(h) > 0:
-				h = h.split("=", 1)
-				dictHeaders[h[0]] = h[1]
-
-		return dictHeaders
+		return {'cookie': self.config.get(SECTION, 'cookie')}
 
 	def LoadSettingsFromFile(self):
 		self.config = ConfigParser.RawConfigParser({
@@ -420,15 +410,8 @@ class BatotoFrame(wx.Frame):
 		arr = self.UiGetList()
 		oldFirst = str(self.menuItemSettingsOrderOld.IsChecked())
 		zipEnabled = str(self.menuItemSettingsZipTrue.IsChecked())
-		cookie = ''
-
-		for key, val in self.cookie:
-			cookie += key + '=' + val + '\n'
-		if len(cookie) > 0:
-			cookie = cookie[:-1] #remove final newline
 
 		self.config.set(SECTION, 'urls', arr)
-		self.config.set(SECTION, 'cookie', cookie)
 		self.config.set(SECTION, 'orderOldFirst', oldFirst)
 		self.config.set(SECTION, 'zip', zipEnabled)
 
@@ -530,22 +513,24 @@ class BatotoFrame(wx.Frame):
 		reason = ''
 		loginNeeded = False
 		parser = URLParser(self.config.get(SECTION, 'proxy'))
+		username = self.config.get(SECTION, 'username')
+		password = self.config.get(SECTION, 'password')
 
-		if len(self.config.get(SECTION, 'username')) == 0 or len(self.config.get(SECTION, 'username')) == 0:
+		if len(username) == 0 or len(password) == 0:
 			reason = 'Username and password cannot be empty.\n' + \
 					'Go to Settings -> Login Credentials'
-		elif self.cookie is None or 'expires' not in self.cookie:
-			loginNeeded = True
-		elif parser.minutesUntil(self.cookie['expires']) <= 10:
-			loginNeeded = True
+		else:
+			expires = parser.getCookie(self.config.get(SECTION, 'cookie'), 'expires')
+			if not expires or parser.minutesUntil(expires) <= 10: #If invalid cookie, or about to expire
+				loginNeeded = True
 
 		if loginNeeded:
 			busy = wx.BusyInfo("Attempting login...")
-			args = parser.login(self.config.get(SECTION, 'username'), self.config.get(SECTION, 'password'))
+			args = parser.login(username, password)
 			del busy
 
 			if args:
-				self.cookie = args
+				self.config.set(SECTION, 'cookie', args['cookie'])
 				self.SaveConfig()
 			else:
 				reason = 'Login failed.\n' + \

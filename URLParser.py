@@ -56,9 +56,9 @@ class URLParser:
 	def Cancel(self, state):
 		self.cancel = True
 	
-	def ContinueDownload(self, url, workdir, frame):
+	def ContinueDownload(self, url, workdir, frame, cookies):
 		if not self.cancel:
-			filep = URLParser.LastFileInPath(self, url)
+			filep = self.LastFileInPath(url)
 			#frame.SetStatusText('Downloading: ' + filep)
 			print 'Downloading: ' + filep
 			repeatCount = self.IOError_RepeatCount
@@ -68,7 +68,7 @@ class URLParser:
 						tmpUrl = url.replace('://img', '://img'+str(self.imgServer), 1)
 					else:
 						tmpUrl = url
-					r = self.http.request('GET', tmpUrl)
+					r = self.http.request('GET', tmpUrl, headers=cookies)
 					if self.zf is None:
 						with open(workdir + "/" + filep, "wb") as dlFile:
 							dlFile.write(r.data)
@@ -95,20 +95,20 @@ class URLParser:
 		else:
 			return "Page skipped"
 	
-	def worker(self, work_queue, done_queue, workdir, frame):
+	def worker(self, work_queue, done_queue, workdir, frame, cookies):
 		for url in iter(work_queue.get, 'STOP'):
 			if self.cancel:
 				return False
-			status_code = URLParser.ContinueDownload(self, url, workdir, frame)
+			status_code = self.ContinueDownload(url, workdir, frame, cookies)
 			done_queue.put(status_code)
 		return True
 	
-	def downloadFullSeries(self, url, home, frame, isZip, language):
+	def downloadFullSeries(self, url, home, frame, isZip, language, cookies):
 
 		if url[-1] != "/":
 			url += "/"
 		try:
-			workDir = home + "/" + URLParser.LastFolderInPath(self, url)
+			workDir = home + "/" + self.LastFolderInPath(url)
 		except Exception, e:
 			print repr(e)
 			return False
@@ -124,7 +124,7 @@ class URLParser:
 				break
 			print "Indexing " + chapter
 			print "-----------------------"
-			self.downloadFromURL(chapter, workDir, frame, isZip, language)
+			self.downloadFromURL(chapter, workDir, frame, isZip, language, cookies)
 			
 		print "Finished downloading series"
 		print "-----------------------"
@@ -148,17 +148,17 @@ class URLParser:
 		
 		return chapters
 
-	def downloadFromURL(self, url, home, frame, isZip, language):
+	def downloadFromURL(self, url, home, frame, isZip, language, cookies):
 		if len(url) < 7:
 			return False
 		elif (len(url) < 19 or not(url[:14] == "http://bato.to" or url[:15] == "https://bato.to" or url[:18] == "http://www.bato.to" or url[:19] == "https://www.bato.to")):
 			return False
 		elif "bato.to/comic/" in url:
-			return URLParser.downloadFullSeries(self, url, home, frame, isZip, language)
+			return self.downloadFullSeries(url, home, frame, isZip, language, cookies)
 		else:
 			if (not url[-1] == "/" and not url[-1] == "/1"): url += "/1"
 
-		info = self.getChapterInfo(url)
+		info = self.getChapterInfo(url, cookies)
 		
 		lastPath = info.series + " - " + info.chapter + " by " + info.group
 		workDir = home + "/" + lastPath
@@ -180,8 +180,8 @@ class URLParser:
 					wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(i))
 					print 'Indexing page ' + str(i)
 
-					pageUrl = self.findExtension(info.format, i)
-					if pageUrl and URLParser.Download(self, pageUrl, workDir, frame):
+					pageUrl = self.findExtension(info.format, i, cookies)
+					if pageUrl and self.Download(pageUrl, workDir, frame, cookies):
 							urls.append(pageUrl)
 				except Exception, e:
 					break
@@ -206,9 +206,9 @@ class URLParser:
 				if self.cancel:
 					return False
 				elif os.name == 'nt':
-					p = Thread(target=self.worker, args=(self.work_queue, self.done_queue, workDir, frame))
+					p = Thread(target=self.worker, args=(self.work_queue, self.done_queue, workDir, frame, cookies))
 				else:
-					p = Process(target=self.worker, args=(self.work_queue, self.done_queue, workDir, frame))
+					p = Process(target=self.worker, args=(self.work_queue, self.done_queue, workDir, frame, cookies))
 				p.start()
 				self.processes.append(p)
 				self.work_queue.put('STOP')
@@ -249,28 +249,33 @@ class URLParser:
 		
 		return not self.cancel and i != 1
 	
-	def findExtension(self, path, i):
+	def findExtension(self, path, i, cookies):
 
 		for s in self.extensions:
 			url = path + 'img' + format(i, 6) + s
-			if (self.testURL(url) != False):
+			if (self.testURL(url, cookies) != False):
 				return url
 
 		return None
 	
-	def testURL(self, url):
+	def testURL(self, url, cookies):
 		
-		r = self.http.request('GET', url)
+		r = self.http.urlopen('GET', url, headers=cookies)
 		return r.data if r.status == 200 else False
 
-	def getChapterInfo(self, url):
+	def getChapterInfo(self, url, cookies):
 		if '#' in url:
 			url = url[url.rindex('#')+1:]
 			if len(url) > 0:
-				url = "http://bato.to/areader?id="+url+"&p=1"
+				url = 'https://bato.to/areader?id='+url+'&p=1'
 				url = self.suppressWebtoon(url)
-				req = self.http.request('GET', url)
+				print cookies
+
+				req = self.http.urlopen('GET', url, headers=cookies)
 				dom = hlxml.fromstring(req.data)
+
+				with open('/tmp/batoto.txt', 'w') as dlfile:
+					dlfile.write(req.data)
 
 				group = dom.xpath(".//*[@name='group_select']")[0].value
 				group = group[:group.rindex(' -')]
@@ -289,33 +294,18 @@ class URLParser:
 				}
 				return vals
 		return None
-	
-	def findFormat(self, pFormat, i):
-
-		url = self.suppressWebtoon(url)
-		r = self.http.request('GET', url)
-		dom = hlxml.fromstring(r.data)
-		img = dom.xpath(".//*[@id='comic_page']")[0]
-		src = img.get('src')
-
-		if src is not None:
-			if src[0:10] == "http://img":
-				src = "http://cdn" + src[10:] #Try CDN first
-			return src
-		
-		return False
 
 	def suppressWebtoon(self, url):
 		if 'supress_webtoon' not in url:
 			url += '&supress_webtoon=t' #Doesn't affect normal chapters, but makes webtoons easier to parse
-		return url
+		return str(url)
 	
-	def Download(self, url, workDir, frame):
+	def Download(self, url, workDir, frame, cookies):
 		if self.cancel:
 			return False
 		filep = self.LastFileInPath(url)
 		lFile = workDir + "/" + filep
-		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(self.http.urlopen('GET', url).headers["Content-Length"]):
+		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(self.http.urlopen('GET', url, headers=cookies).headers["Content-Length"]):
 			wx.CallAfter(frame.UiPrint, filep + ' already exists')
 			return False
 		else:
@@ -389,10 +379,14 @@ class URLParser:
 
 		r = self.http.request_encode_body('POST', url, fields, headers, redirect=False)
 		encHeaders = self.parseHeaders(r)
+
+		#return False
 		
-		if 'member_id' in dictHeaders:
-			return {'cookie': dictHeaders} #Login successful
+		if 'member_id' in encHeaders:
+			print 'login successful'
+			return {'cookie': encHeaders} #Login successful
 		else:
+			print 'login failed'
 			return False #Login failed
 
 	#This method takes a request object, grabs its headers, and turns them into a dict.
@@ -401,27 +395,43 @@ class URLParser:
 	#This should ideally be fixed, but is not a priority.
 	def parseHeaders(self, r):
 
-		encHeaders = r.getheader('set-cookie').replace('httponly,', '').split("; ") #Get headers as list
+		#print r.getheaders()
+
+		encHeaders = r.getheader('set-cookie') #.replace('httponly,', '').split("; ") #Get headers as list
 		dictHeaders = {}
 
-		for h in encHeaders:
-			if '=' in h:
-				h = h.strip()
-				h = h.split("=", 1) #Turn each header into key/value pair
-				dictHeaders[h[0]] = h[1] #Add header to dictionary
+		# for h in encHeaders:
+		# 	if '=' in h:
+		# 		h = h.strip()
+		# 		h = h.split("=", 1) #Turn each header into key/value pair
+		# 		dictHeaders[h[0]] = h[1] #Add header to dictionary
 
-		return dictHeaders
+		#return dictHeaders
+		return encHeaders
 
 	#Returns minutes until time passed in lapses
 	def minutesUntil(self, time1):
-		time1 = strptime(time1, "%a, %d %b %Y %H:%M:%S +0000")
-		cTime = strftime("%a, %d %b %Y %H:%M:%S +0000")
+		strFormat = "%a, %d-%b-%Y %H:%M:%S GMT"
+		time1 = strptime(time1, strFormat)
+		cTime = strftime("%a %b %d %H:%M:%S %Y")
 		cTime = strptime(cTime)
 
 		if time1 > cTime:
 			return 0
 		else:
 			return (time.mktime(cTime) - time.mktime(time1)) / 60
+
+	def getCookie(self, cookie, name):
+		if cookie:
+			if 'cookie' in cookie:
+				cookie = cookie['cookie']
+			if name in cookie:
+				print cookie
+				cookie = cookie[cookie.index(name) : ]
+				print cookie
+				return cookie[cookie.index('=')+1 : cookie.index(';')]
+		return False
+
 
 def LastFolderInPath(path):
 	start = path.rindex('/')
