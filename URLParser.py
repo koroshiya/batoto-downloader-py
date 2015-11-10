@@ -22,6 +22,8 @@ import zipfile
 import tempfile
 from time import strptime, strftime
 
+import string
+
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
@@ -40,6 +42,7 @@ class URLParser:
 		self.extensions = [".jpeg", ".jpg", ".png", ".gif"]
 		self.zf = None
 		self.cookies = None
+		self.valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
 
 		if len(proxy) > 0:
 			self.http = urllib3.ProxyManager(
@@ -304,6 +307,10 @@ class URLParser:
 					urls = pFormat
 					pFormat = ''
 
+				group = self.sanitize(group)
+				series = self.sanitize(series)
+				chapter = self.sanitize(chapter)
+
 				vals = {
 					'group':group,
 					'series':series,
@@ -456,6 +463,9 @@ class URLParser:
 	
 	def updateSession(self, r):
 		self.cookies = r.getheader('set-cookie')
+
+	def sanitize(self, val):
+		return ''.join(c for c in val if c in self.valid_chars)
 
 
 def LastFolderInPath(path):
