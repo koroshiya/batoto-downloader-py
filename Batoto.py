@@ -28,27 +28,62 @@ import importlib
 from distutils.version import LooseVersion
 
 required_modules = [
-	['lxml', '3.4.4', 'b3d362bac471172747cda3513238f115cbd6c5f8b8e6319bf6a97a7892724099', 'src/lxml', ''],
-	['certifi', '2015.9.6.2', 'dc3a2b2d9d1033dbf27586366ae61b9d7c44d8c3a6f29694ffcbb0618ea7aea6', 'certifi', ''],
-#	['urllib3', '1.12', '0ea512776971fe4e76192600fe41e4e7ee96b4b9a5b15aefc1ac31d2a63872c6', 'urllib3', ''],
-	['pyOpenSSL', '0.15.1', 'f0a26070d6db0881de8bcc7846934b7c3c930d8f9c79d45883ee48984bc0d672', 'OpenSSL', 'pyOpenSSL'],
-	['ndg.httpsclient', '0.4.0', 'e8c155fdebd9c4bcb0810b4ed01ae1987554b1ee034dd7532d7b8fdae38a6274', 'ndg', 'ndg_httpsclient'],
-	['pyasn1', '0.1.9', '853cacd96d1f701ddd67aa03ecc05f51890135b7262e922710112f12a2ed2a7f', 'pyasn1', '']
+	{
+		'name':'lxml',
+		'version':'3.4.4',
+		'sha256sum':'b3d362bac471172747cda3513238f115cbd6c5f8b8e6319bf6a97a7892724099',
+		'dir':'src/lxml'
+	},
+	{
+		'name':'certifi',
+		'version':'2015.9.6.2',
+		'sha256sum':'dc3a2b2d9d1033dbf27586366ae61b9d7c44d8c3a6f29694ffcbb0618ea7aea6',
+		'dir':'certifi'
+	},
+	{
+		'name':'pyOpenSSL',
+		'version':'0.15.1',
+		'sha256sum':'f0a26070d6db0881de8bcc7846934b7c3c930d8f9c79d45883ee48984bc0d672',
+		'dir':'OpenSSL',
+		#'filename':'pyOpenSSL'
+	},
+	{
+		'name':'ndg-httpsclient',
+		'moduleName':'ndg',
+		'version':'0.4.0',
+		'sha256sum':'e8c155fdebd9c4bcb0810b4ed01ae1987554b1ee034dd7532d7b8fdae38a6274',
+		'dir':'ndg',
+		'filename':'ndg_httpsclient',
+		'extractDir':'ndg'
+	},
+	{
+		'name':'pyasn1',
+		'version':'0.1.9',
+		'sha256sum':'853cacd96d1f701ddd67aa03ecc05f51890135b7262e922710112f12a2ed2a7f',
+		'dir':'pyasn1'
+	},
+#	['urllib3', '1.12', '0ea512776971fe4e76192600fe41e4e7ee96b4b9a5b15aefc1ac31d2a63872c6', 'urllib3', '', ''],
 ]
 missing_modules = []
 for m in required_modules:
 	try:
-		print 'testing '+m[0]
-		if LooseVersion(__import__(m[0]).__version__) < LooseVersion(m[1]):
-			print 'Newer version of '+m[0]+' available'
-			print 'Comparing '+__import__(m[0]).__version__+' to '+m[1]
+		print 'testing '+m['name']
+		if LooseVersion(__import__(m['name']).__version__) < LooseVersion(m['version']):
+			print 'Newer version of '+m['name']+' available'
+			print 'Comparing '+__import__(m['name']).__version__+' to '+m['version']
 			raise ImportError
-		importlib.import_module(m[0])
+		if 'moduleName' in m:
+			importlib.import_module(m['moduleName'])
+		else:
+			importlib.import_module(m['name'])
 	except ImportError:
 		missing_modules.append(m)
 	except AttributeError: #Version number not specified
 		try:
-			importlib.import_module(m[0])
+			if 'moduleName' in m:
+				importlib.import_module(m['moduleName'])
+			else:
+				importlib.import_module(m['name'])
 		except ImportError:
 			missing_modules.append(m)
 
@@ -63,9 +98,12 @@ if len(missing_modules) > 0:
 
 	for m in missing_modules:
 		try:
-			importlib.import_module(m[0])
+			if 'moduleName' in m:
+				importlib.import_module(m['moduleName'])
+			else:
+				importlib.import_module(m['name'])
 		except ImportError:
-			print 'Module '+m[0]+' still missing; assuming user stopped half way through'
+			print 'Module '+m['name']+' still missing; assuming user stopped half way through'
 			sys.exit()
 
 import os

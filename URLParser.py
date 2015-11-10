@@ -304,6 +304,7 @@ class URLParser:
 				pages = dom.xpath(".//*[@name='page_select']")
 				if len(pages) > 0:
 					pages = len(pages[0])
+					urls = []
 					pFormat = self.AbsoluteFolder(pFormat[0])
 				else:
 					pages = 1

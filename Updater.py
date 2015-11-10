@@ -42,13 +42,13 @@ class MainFrame(wx.Frame):
         baseUrl = 'https://pypi.python.org/packages/source/'
 
         for m in self.modules:
-            version = m[0] + '-' + m[1]
-            if len(m[4]) > 0:
-                fName = m[4] + '-' + m[1]
+            version = m['name'] + '-' + m['version']
+            if 'filename' in m:
+                fName = m['filename'] + '-' + m['version']
             else:
                 fName = version
             fileName = fName + '.tar.gz'
-            url = baseUrl + m[0][0] + '/' + m[0] + '/' + fileName
+            url = baseUrl + m['name'][0] + '/' + m['name'] + '/' + fileName
 
             self.chunk_read(url, fileName)
 
@@ -57,7 +57,7 @@ class MainFrame(wx.Frame):
                 self.silentremove(fileName)
                 break
 
-            if not self.sha256(fileName, m[2]):
+            if not self.sha256(fileName, m['sha256sum']):
                 self.silentremove(fileName)
                 #tkMessageBox.showinfo('Download error', 'Failed to download required module: '+m[0])
                 break
@@ -68,14 +68,21 @@ class MainFrame(wx.Frame):
             tar.close()
             self.silentremove(fileName)
 
-            shutil.move(fName+'/'+m[3], './')
-            shutil.rmtree(fName)
-            os.rename(m[3], m[0])
+            self.silentremove(m['dir'])
+            shutil.move(fName+'/'+m['dir'], './')
+            self.silentremove(fName)
+            if 'extractDir' in m:
+                if m['extractDir'] != m['dir']:
+                    self.silentremove(m['extractDir'])
+                    os.rename(m['dir'], m['extractDir'])
+            else:
+                self.silentremove(m['name'])
+                os.rename(m['dir'], m['name'])
 
             wx.CallAfter(
                 self.updateGauge,
                 100,
-                "Extracting module: %s" % (m[0],)
+                "Extracting module: %s" % (m['name'],)
             )
 
         wx.CallAfter(self.buCancel.Disable)
@@ -83,13 +90,16 @@ class MainFrame(wx.Frame):
 
         for m in self.modules:
             try:
-                importlib.import_module(m[0])
+                if 'moduleName' in m:
+                    importlib.import_module(m['moduleName'])
+                else:
+                    importlib.import_module(m['name'])
             except ImportError:
                 wx.CallAfter(self.bt.Enable)
                 wx.CallAfter(
                     self.updateGauge,
                     100,
-                    "Download of module %s failed or canceled - Program aborting" % (m[0],)
+                    "Download of module %s failed or canceled - Program aborting" % (m['name'],)
                 )
 
         self.onClose(None)
@@ -101,7 +111,7 @@ class MainFrame(wx.Frame):
         wx.CallAfter(
             self.updateGauge,
             int(percent),
-            "Downloading module %s: %i%% complete" % (m[0], percent)
+            "Downloading module %s: %i%% complete" % (m['name'], percent)
         )
 
     def chunk_read(self, url, fileName, chunk_size=8192, report_hook=None):
@@ -140,6 +150,10 @@ class MainFrame(wx.Frame):
     def silentremove(self, filename):
         try:
             os.remove(filename)
+        except OSError as e:
+            pass
+        try:
+            shutil.rmtree(filename)
         except OSError as e:
             pass
 
