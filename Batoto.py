@@ -69,23 +69,21 @@ missing_modules = []
 for m in required_modules:
 	try:
 		print 'testing '+m['name']
-		if 'versionCheck' not in m or ['versionCheck'] == True:
-			if LooseVersion(__import__(m['name']).__version__) < LooseVersion(m['version']):
-				print 'Newer version of '+m['name']+' available'
-				print 'Comparing '+__import__(m['name']).__version__+' to '+m['version']
-				raise ImportError
 		if 'moduleName' in m:
-			importlib.import_module(m['moduleName'])
+			mName = m['moduleName']
 		else:
-			importlib.import_module(m['name'])
+			mName = m['name']
+		if 'versionCheck' not in m or ['versionCheck'] == True:
+			if LooseVersion(__import__(mName).__version__) < LooseVersion(m['version']):
+				print 'Newer version of '+mName+' available'
+				print 'Comparing '+__import__(mName).__version__+' to '+m['version']
+				raise ImportError
+		importlib.import_module(mName)
 	except ImportError:
 		missing_modules.append(m)
 	except AttributeError: #Version number not specified
 		try:
-			if 'moduleName' in m:
-				importlib.import_module(m['moduleName'])
-			else:
-				importlib.import_module(m['name'])
+			importlib.import_module(mName)
 		except ImportError:
 			missing_modules.append(m)
 
