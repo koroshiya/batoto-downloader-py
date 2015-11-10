@@ -190,6 +190,7 @@ class URLParser:
 					print 'Indexing page ' + str(i)
 
 					pageUrl = self.findExtension(info['format'], i)
+					print "fake downloading"
 					if pageUrl and self.Download(pageUrl, workDir, frame):
 							urls.append(pageUrl)
 				except Exception, e:
@@ -277,9 +278,9 @@ class URLParser:
 			referer = self.AbsoluteFolder(url) + "reader#" + uuid + "_1"
 			cookies = {'Referer':referer, 'supress_webtoon':'t'}
 
-		r = self.http.urlopen('GET', url, headers=self.buildHeaders(cookies))
+		r = self.http.urlopen('HEAD', url, headers=self.buildHeaders(cookies))
 		self.updateSession(r)
-		return r.data if r.status == 200 else False
+		return r.status == 200
 
 	def getChapterInfo(self, url, cookies):
 		if url and '#' in url:
@@ -328,12 +329,11 @@ class URLParser:
 		return None
 	
 	def Download(self, url, workDir, frame):
-		print 'downloading...'
 		if self.cancel:
 			return False
 		filep = self.LastFileInPath(url)
 		lFile = workDir + "/" + filep
-		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(self.http.urlopen('GET', url, headers=self.buildHeaders()).headers["Content-Length"]):
+		if os.path.isfile(lFile) and os.path.getsize(lFile) == int(self.http.urlopen('HEAD', url, headers=self.buildHeaders()).headers["Content-Length"]): #TODO: .headers is broken
 			wx.CallAfter(frame.UiPrint, filep + ' already exists')
 			return False
 		else:
