@@ -154,7 +154,7 @@ class URLParser:
 	def downloadFromURL(self, url, home, frame, isZip, language, cookies):
 		if len(url) < 7:
 			return False
-		elif (len(url) < 19 or not(url[:14] == "http://bato.to" or url[:15] == "https://bato.to" or url[:18] == "http://www.bato.to" or url[:19] == "https://www.bato.to")):
+		elif (len(url) < 19 or not(url.startswith("http://bato.to") or url.startswith("https://bato.to") or url.startswith("http://www.bato.to") or url.startswith("https://www.bato.to"))):
 			return False
 		elif "bato.to/comic/" in url:
 			return self.downloadFullSeries(url, home, frame, isZip, language, cookies)
@@ -280,7 +280,7 @@ class URLParser:
 			uuid = url[url.rindex('#')+1:]
 			if len(url) > 0:
 				referer = self.AbsoluteFolder(url) + "reader#" + uuid + "_1"
-				url = str(self.AbsoluteFolder(url) + 'areader?id='+uuid+'&p=1')
+				url = self.AbsoluteFolder(url) + 'areader?id='+uuid+'&p=1'
 				cookies = {'Referer':referer, 'supress_webtoon':'t'}
 
 				req = self.http.urlopen('GET', url, headers=self.buildHeaders(cookies))
@@ -315,11 +315,6 @@ class URLParser:
 				print vals
 				return vals
 		return None
-
-	def suppressWebtoon(self, url):
-		if 'supress_webtoon' not in url:
-			url += '&supress_webtoon=t' #Doesn't affect normal chapters, but makes webtoons easier to parse
-		return str(url)
 	
 	def Download(self, url, workDir, frame):
 		print 'downloading...'
