@@ -90,6 +90,8 @@ class BatotoThread(Thread):
 
 	def ParseLine(self, line):
 		line = line.strip(' \t\n\r')
+		if line.startswith("https://"):
+			line = "http" + line[5:] #TODO: remove when HTTPS support is added for individual chapters
 		if line and self.parser.testURL(line):
 			global HOME_DIR
 			self.parser.downloadFromURL(line, HOME_DIR, self.frame, self.isZip, self.language, self.cookie)
