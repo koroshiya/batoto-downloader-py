@@ -12,6 +12,7 @@ import pyOpenSSL
 import urllib3.contrib.pyopenssl
 urllib3.contrib.pyopenssl.inject_into_urllib3()
 
+import statvfs
 import os
 from multiprocessing import Queue, current_process
 if os.name == 'nt':
@@ -190,6 +191,12 @@ class URLParser:
 			return False
 		
 		lastPath = info['series'] + " - " + info['chapter'] + " by " + info['group']
+		maxLen = os.statvfs(home)[statvfs.F_NAMEMAX]
+		if len(lastPath) + 4 > maxLen: #if filename + .zip is too long to be valid
+			lenDiff = len(lastPath) - (maxLen - 4 - 3) #len - ".zip" - "..."
+			lastPath = info['series'] + " - " + info['chapter'][:lenDiff] + "... by " + info['group']
+			if len(lastPath) + 4 > maxLen:
+				lastPath = (info['series'] + " - " + info['chapter'])[:maxLen - 4]
 		workDir = home + "/" + lastPath
 		self.zf = None
 		if isZip:
