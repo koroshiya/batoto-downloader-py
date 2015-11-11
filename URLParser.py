@@ -102,11 +102,11 @@ class URLParser:
 	
 	def IndexPage(self, info, workdir, frame):
 		try:
-			wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(len(done_queue) + 1))
-			print 'Indexing page ' + str(len(done_queue) + 1)
+			wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(info['index']))
+			print 'Indexing page ' + str(info['index'])
 
 			pageUrl = self.findExtension(info['format'], info['index'])
-			if pageUrl and self.Download(pageUrl, workDir, frame):
+			if pageUrl and self.Download(pageUrl, workdir, frame):
 				return pageUrl
 		except Exception, e:
 			print e
