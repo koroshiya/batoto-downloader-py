@@ -39,7 +39,7 @@ class URLParser:
 		self.imgServerMax = 4 #Number of image servers available
 		self.imgServer = 1
 		self.cancel = False
-		self.extensions = [".jpeg", ".jpg", ".png", ".gif"]
+		self.extensions = [".png", ".jpg", ".jpeg", ".gif"]
 		self.zf = None
 		self.cookies = None
 		self.valid_chars = "-_.(),'[]{}~&^%%$#@! %s%s" % (string.ascii_letters, string.digits)
