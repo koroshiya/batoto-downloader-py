@@ -291,6 +291,9 @@ class URLParser:
 				cookies = {'Referer':referer, 'supress_webtoon':'t'}
 
 				req = self.http.urlopen('GET', url, headers=self.buildHeaders(cookies))
+				if not req.data:
+					print "Empty chapter info. Skipping " + uuid + "\n"
+					return
 				dom = hlxml.fromstring(req.data)
 
 				#with open('/tmp/batoto.txt', 'w') as dlfile:
