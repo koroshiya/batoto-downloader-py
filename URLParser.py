@@ -242,8 +242,8 @@ class URLParser:
 
 		if len(urls) > 0:
 			
-			self.work_queue.clear()
-			self.done_queue.clear()
+			self.work_queue = Queue()
+			self.done_queue = Queue()
 
 			for url in urls:
 				self.work_queue.put(url)
