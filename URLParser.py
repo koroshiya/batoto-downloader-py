@@ -191,7 +191,11 @@ class URLParser:
 			return False
 		
 		lastPath = info['series'] + " - " + info['chapter'] + " by " + info['group']
-		maxLen = os.statvfs(home)[statvfs.F_NAMEMAX]
+		try:
+			maxLen = os.statvfs(home)[statvfs.F_NAMEMAX]
+		except Exception, e:
+			maxLen = 255
+		
 		if len(lastPath) + 4 > maxLen: #if filename + .zip is too long to be valid
 			lenDiff = len(lastPath) - (maxLen - 4 - 3) #len - ".zip" - "..."
 			lastPath = info['series'] + " - " + info['chapter'][:lenDiff] + "... by " + info['group']
