@@ -289,7 +289,7 @@ class URLParser:
 				files.sort()
 				for f in files:
 					filename = self.LastFileInPath(f[:-4])
-					print 'zipping file :'+filename
+					print 'zipping file: '+filename
 					self.zf.write(f, arcname=filename)
 					os.remove(f)
 				self.zf.close()

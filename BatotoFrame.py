@@ -147,7 +147,7 @@ class BatotoFrame(wx.Frame):
 		menuItemImport = wx.MenuItem(menuFile, FILE_IMPORT, '&Import\tCtrl+I')
 		menuItemExport = wx.MenuItem(menuFile, FILE_EXPORT, '&Export\tCtrl+E')
 		menuItemSave = wx.MenuItem(menuFile, FILE_SAVE, '&Save\tCtrl+S')
-		menuItemQuit = wx.MenuItem(menuFile, FILE_CLOSE, '&Quit\tStrl+Q')
+		menuItemQuit = wx.MenuItem(menuFile, FILE_CLOSE, '&Quit\tCtrl+Q')
 
 		menuItemParseFirst = wx.MenuItem(menuParse, FILE_PARSE_FIRST, 'Parse &First')
 		menuItemParseLast = wx.MenuItem(menuParse, FILE_PARSE_LAST, 'Parse &Last')
