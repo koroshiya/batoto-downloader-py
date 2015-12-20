@@ -5,7 +5,7 @@ import sys
 import wx
 from URLParser import URLParser
 import os
-from os.path import expanduser, isfile, join
+from os.path import expanduser, isfile, isdir, join
 from threading import Thread
 from LoginDialog import LoginDialog
 import ConfigParser
@@ -33,6 +33,7 @@ SETTING_RSS_FRAME = 687
 SETTING_LANGUAGE_FRAME = 688
 SETTING_PROXY = 689
 SETTING_LOGIN = 690
+SETTING_DOWNLOAD_DIR = 691
 
 HOME_DIR = expanduser("~")
 if os.name == 'nt':
@@ -57,6 +58,7 @@ class BatotoThread(Thread):
 		self.order = order
 		self.isZip = frame.menuItemSettingsZipTrue.IsChecked()
 		self.language = frame.config.get(SECTION, 'language')
+		self.downloadDir = frame.config.get(SECTION, 'downloadDir')
 		self.cookie = frame.LoadCookiesFromFile()
 		self.start() #start automatically
 	
@@ -93,8 +95,11 @@ class BatotoThread(Thread):
 		if line.startswith("https://"):
 			line = "http" + line[5:] #TODO: remove when HTTPS support is added for individual chapters
 		if line and self.parser.testURL(line):
-			global HOME_DIR
-			self.parser.downloadFromURL(line, HOME_DIR, self.frame, self.isZip, self.language, self.cookie)
+			dDir = self.downloadDir
+			if not (len(dDir) > 0 and isdir(dDir) and os.access(dDir, os.W_OK | os.X_OK)):
+				global HOME_DIR
+				dDir = HOME_DIR
+			self.parser.downloadFromURL(line, dDir, self.frame, self.isZip, self.language, self.cookie)
 
 class BatotoFrame(wx.Frame):
 
@@ -167,6 +172,7 @@ class BatotoFrame(wx.Frame):
 
 		menuItemRSSDialog = wx.MenuItem(menuSettings, SETTING_RSS_FRAME, '&RSS Settings')
 		menuItemLanguageDialog = wx.MenuItem(menuSettings, SETTING_LANGUAGE_FRAME, '&Language Settings')
+		menuItemDownloadDirectory = wx.MenuItem(menuSettings, SETTING_DOWNLOAD_DIR, '&Download Directory')
 		menuItemProxyDialog = wx.MenuItem(menuSettings, SETTING_PROXY, '&HTTP Proxy')
 		menuItemLoginDialog = wx.MenuItem(menuSettings, SETTING_LOGIN, '&Login Credentials')
 
@@ -192,6 +198,7 @@ class BatotoFrame(wx.Frame):
 		menuSettings.AppendMenu(SETTING_ZIP_MENU, '&Zip Chapters', menuSettingsZip)
 		menuSettings.AppendItem(menuItemRSSDialog)
 		menuSettings.AppendItem(menuItemLanguageDialog)
+		menuSettings.AppendItem(menuItemDownloadDirectory)
 		menuSettings.AppendItem(menuItemProxyDialog)
 		#menuSettings.AppendItem(menuItemLoginDialog) #TODO: enable when logins are needed
 
@@ -215,6 +222,7 @@ class BatotoFrame(wx.Frame):
 
 		self.Bind(wx.EVT_MENU, self.showRSSDialog, id=SETTING_RSS_FRAME)
 		self.Bind(wx.EVT_MENU, self.showLanguageDialog, id=SETTING_LANGUAGE_FRAME)
+		self.Bind(wx.EVT_MENU, self.showDownloadDirDialog, id=SETTING_DOWNLOAD_DIR)
 		self.Bind(wx.EVT_MENU, self.showProxyDialog, id=SETTING_PROXY)
 		self.Bind(wx.EVT_MENU, self.showLoginDialog, id=SETTING_LOGIN)
 
@@ -401,7 +409,8 @@ class BatotoFrame(wx.Frame):
 			'proxy':'',
 			'cookie':'',
 			'username':'',
-			'password':''
+			'password':'',
+			'downloadDir':''
 		})
 
 		if isfile(SETTINGS_FILE):
@@ -490,6 +499,18 @@ class BatotoFrame(wx.Frame):
 		
 		if result is not False:
 			self.config.set(SECTION, 'language', result)
+
+	def showDownloadDirDialog(self, e):
+		dlg = wx.DirDialog(self,
+			'Select a writable directory in which to store Batoto downloads.',
+			self.config.get(SECTION, 'downloadDir'),
+			wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
+		dlg.ShowModal()
+		result = dlg.GetPath()
+		dlg.Destroy()
+		
+		if result is not False and isdir(result) and os.access(result, os.W_OK | os.X_OK):
+			self.config.set(SECTION, 'downloadDir', result)
 
 	def showProxyDialog(self, e):
 		dlg = wx.TextEntryDialog(self,
