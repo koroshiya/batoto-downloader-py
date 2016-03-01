@@ -170,9 +170,7 @@ class URLParser:
 
 		for a in aList:
 			href = a.get('href')
-			if href is not None and 'http://bato.to/read/' in href:
-				if href[-1] != '/':
-					href += '/'
+			if href is not None and 'http://bato.to/reader#' in href:
 				chapters.append(href)
 		
 		return chapters
