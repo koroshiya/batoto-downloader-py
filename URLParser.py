@@ -412,9 +412,13 @@ class URLParser:
 		items = xml.xpath('//item')
 		newItems = ''
 
+		currentTime = strptime(strftime("%a %b %d %H:%M:%S %Y"))
+
 		newDateStr = lastParsed
 		if len(lastParsed) > 0:
 			newDate = lastParsed = strptime(lastParsed, "%a, %d %b %Y %H:%M:%S +0000")
+			if lastParsed > currentTime:
+				newDate = lastParsed = currentTime
 		else:
 			newDate = False
 		
@@ -429,6 +433,9 @@ class URLParser:
 					if not newDate or date > newDate:
 						newDate = date
 						newDateStr = dateStr
+
+		if newDateStr > currentTime:
+			newDateStr = strftime("%a, %d %b %Y %H:%M:%S +0000", currentTime)
 		
 		return [True, newDateStr, newItems]
 
