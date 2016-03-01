@@ -414,9 +414,11 @@ class URLParser:
 
 		newDateStr = lastParsed
 		if len(lastParsed) > 0:
-			newDate = lastParsed = strptime(lastParsed, "%a, %d %b %Y %H:%M:%S +0000")
+			lastParsed = strptime(lastParsed, "%a, %d %b %Y %H:%M:%S +0000")
 			if lastParsed > currentTime:
-				newDate = lastParsed = currentTime
+				twoDaysAgo = datetime.date.fromordinal(datetime.date.today().toordinal()-2)
+				lastParsed = twoDaysAgo.strftime('%a, %d %b %Y %H:%M:%S +0000')
+			newDate = lastParsed
 		else:
 			newDate = False
 		
