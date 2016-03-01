@@ -432,7 +432,7 @@ class URLParser:
 						newDate = date
 						newDateStr = dateStr
 
-		if newDateStr > currentTime:
+		if newDate and newDate > currentTime:
 			newDateStr = strftime("%a, %d %b %Y %H:%M:%S +0000", currentTime)
 		
 		return [True, newDateStr, newItems]
