@@ -339,14 +339,14 @@ class URLParser:
 					return
 				dom = hlxml.fromstring(req.data)
 
-				#with open('/tmp/batoto.txt', 'w') as dlfile:
+				#with open('batoto.txt', 'w') as dlfile:
 				#	dlfile.write(req.data)
 
 				group = dom.xpath(".//*[@name='group_select']/option[@selected='selected']/text()")[0]
 				group = group[:group.rindex(' -')]
 				series = dom.xpath(".//ul/li/a")[0].text
 				chapter = dom.xpath(".//*[@name='chapter_select']/option[@selected='selected']/text()")[0]
-				pFormat = dom.xpath(".//img[starts-with(@src, 'http://img.bato.to/comics/2')]/@src")
+				pFormat = dom.xpath(".//img[contains(@src,'.bato.to/comics/2')]/@src")
 				#comics/2 ensures we only get comics from year 2000 onwards; not misc images in comics dir
 				pages = dom.xpath(".//*[@name='page_select']")
 				if len(pages) > 0:
