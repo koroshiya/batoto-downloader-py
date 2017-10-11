@@ -36,6 +36,7 @@ class URLParser:
 		self.done_queue = Queue()
 		self.processes = []
 		self.workers = 4
+		self.workers_index = 2
 		self.IOError_RepeatCount = 4
 		self.imgServerMax = 4 #Number of image servers available
 		self.imgServer = 1
@@ -218,7 +219,7 @@ class URLParser:
 			for i in range(1, info['pages']+1):
 				self.work_queue.put({'format':info['format'], 'index':i})
 				
-			for w in xrange(self.workers):
+			for w in xrange(self.workers_index):
 				if self.cancel:
 					return False
 				elif os.name == 'nt':
