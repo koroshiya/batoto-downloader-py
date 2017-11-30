@@ -41,7 +41,6 @@ class URLParser:
         self.imgServerMax = 4 #Number of image servers available
         self.imgServer = 1
         self.cancel = False
-        self.extensions = [".jpg", ".png", ".jpeg", ".gif"]
         self.zf = None
         self.cookies = None
         self.valid_chars = "-_.(),'[]{}~&^%%$#@! %s%s" % (string.ascii_letters, string.digits)
@@ -104,12 +103,33 @@ class URLParser:
     
     def IndexPage(self, info, workdir, frame):
         try:
-            wx.CallAfter(frame.UiPrint, 'Indexing page ' + str(info['index']))
-            print 'Indexing page ' + str(info['index'])
+            index = str(info['index'])
+            wx.CallAfter(frame.UiPrint, 'Indexing page ' + index)
+            print 'Indexing page ' + index
+            
+            url = info['info']['format'].replace('%PAGE%', index)
 
-            pageUrl = self.findExtension(info['format'], info['index'])
-            if pageUrl and self.Download(pageUrl, workdir, frame):
-                return pageUrl
+            cookies = {}
+            src = info['info']['src']
+            if '#' in src:
+                uuid = src[src.rindex('#')+1:]
+                referer = self.AbsoluteFolder(src) + "reader#" + uuid + "_"+index
+                cookies = {'Referer':referer, 'supress_webtoon':'t'}
+                
+            req = self.http.urlopen('GET', url, headers=self.buildHeaders(cookies))
+            if not req.data:
+                print "Empty page. Skipping " + url + "\n"
+                return False
+            dom = hlxml.fromstring(req.data)
+
+            #with open('batoto'+index+'.txt', 'w') as dlfile:
+            #   dlfile.write(req.data)
+
+            pageUrls = dom.xpath(".//img[@id='comic_page']/@src")
+            if len(pageUrls) == 1:
+                pageUrl = pageUrls[0]
+                if pageUrl and self.DownloadImage(pageUrl, workdir, frame):
+                    return pageUrl
         except Exception, e:
             print e
 
@@ -217,7 +237,7 @@ class URLParser:
         else:
             urls = []
             for i in range(1, info['pages']+1):
-                self.work_queue.put({'format':info['format'], 'index':i})
+                self.work_queue.put({'info':info, 'index':i})
                 
             for w in xrange(self.workers_index):
                 if self.cancel:
@@ -304,16 +324,7 @@ class URLParser:
         wx.CallAfter(frame.EnableCancel, True)
         
         return not self.cancel and len(urls) > 0
-    
-    def findExtension(self, path, i):
 
-        for s in self.extensions:
-            url = path + 'img' + format(i, "06") + s
-            if (self.testURL(url) != False):
-                return url
-
-        return None
-    
     def testURL(self, url):
         
         cookies = {}
@@ -330,8 +341,10 @@ class URLParser:
         if '#' in url:
             uuid = url[url.rindex('#')+1:]
             if len(url) > 0:
-                referer = self.AbsoluteFolder(url) + "reader#" + uuid + "_1"
-                url = self.AbsoluteFolder(url) + 'areader?id='+uuid+'&p=1'
+                src = self.AbsoluteFolder(url) + "reader#" + uuid
+                referer = src + "_1"
+                formatUrl = self.AbsoluteFolder(url) + 'areader?id='+uuid+'&p=%PAGE%'
+                url = formatUrl.replace('%PAGE%','1')
                 cookies = {'Referer':referer, 'supress_webtoon':'t'}
 
                 req = self.http.urlopen('GET', url, headers=self.buildHeaders(cookies))
@@ -353,7 +366,7 @@ class URLParser:
                 if len(pages) > 0:
                     pages = len(pages[0])
                     urls = []
-                    pFormat = self.AbsoluteFolder(pFormat[0])
+                    pFormat = formatUrl
                 else:
                     pages = 1
                     urls = pFormat
@@ -364,6 +377,7 @@ class URLParser:
                 chapter = self.sanitize(chapter)
 
                 vals = {
+                    'src':src,
                     'group':group,
                     'series':series,
                     'chapter':chapter,
@@ -375,7 +389,7 @@ class URLParser:
                 return vals
         return None
     
-    def Download(self, url, workDir, frame):
+    def DownloadImage(self, url, workDir, frame):
         if self.cancel:
             return False
         filep = self.LastFileInPath(url)
