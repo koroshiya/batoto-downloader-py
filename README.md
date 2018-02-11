@@ -1,3 +1,9 @@
+# Batoto is shutting down. As such, this application will no longer be developed.
+
+**The code will remain here in case any Batoto clones pop up, or someone wants to re-use some of the code. However, this software should be considered unmaintained from here on out.**
+
+
+
 batoto-downloader-py
 ====================
 <br>
